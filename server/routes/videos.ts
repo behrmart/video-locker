@@ -1,4 +1,10 @@
+// routes/videos.ts (encabezado correcto)
 import { Router } from 'express';
+import * as fs from 'fs';
+import * as path from 'path';
+import { prisma } from '../prisma';
+import { requireAuth } from '../middleware/auth';
+
 const router = Router();
 const MEDIA_DIR = process.env.MEDIA_DIR || path.join(process.cwd(), 'media', 'videos');
 
