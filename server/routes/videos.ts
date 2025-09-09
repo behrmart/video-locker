@@ -69,9 +69,9 @@ const id = Number(req.params.id);
 const comments = await prisma.comment.findMany({
 where: { videoId: id },
 orderBy: { createdAt: 'desc' },
-include: { user: { select: { username: true } } }
+select: { id: true, content: true, createdAt: true, user: { select: { username: true } } }
 });
-res.json(comments.map(c => ({ id: c.id, content: c.content, createdAt: c.createdAt, username: (c as any).user.username })));
+res.json(comments.map(c => ({ id: c.id, content: c.content, createdAt: c.createdAt, username: c.user.username })));
 });
 
 

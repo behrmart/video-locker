@@ -33,15 +33,6 @@
     "ts-node-dev": "^2.0.0",
     "typescript": "^5.9.2"
   },
-  "compilerOptions": {
-    "target": "ES2020",
-    "module": "CommonJS",
-    "moduleResolution": "node",
-    "outDir": "dist",
-    "esModuleInterop": true,
-    "strict": true,
-    "skipLibCheck": true
-  },
   "include": [
     "**/*.ts"
   ]
