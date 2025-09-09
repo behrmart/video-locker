@@ -1,36 +1,24 @@
-// index.ts — versión limpia (CommonJS-friendly)
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
-
 import authRoutes from './routes/auth';
 import videoRoutes from './routes/videos';
 import adminRoutes from './routes/admin';
+import { requireAuth, requireAdmin } from './middleware/auth';
 
 const app = express();
-const PORT = process.env.PORT ? Number(process.env.PORT) : 3000;
+const PORT = process.env.PORT || 3000;
 
-// CORS origin from env (supports "*" or comma-separated list)
-const CORS_ORIGIN = process.env.CORS_ORIGIN || 'http://localhost:4200';
-let corsMiddleware: ReturnType<typeof cors>;
-if (CORS_ORIGIN === '*') {
-  corsMiddleware = cors();
-} else {
-  const allowed = CORS_ORIGIN.split(',').map(s => s.trim()).filter(Boolean);
-  corsMiddleware = cors({
-    origin: (origin, callback) => {
-      if (!origin) return callback(null, true); // allow non-browser/same-origin
-      return callback(null, allowed.includes(origin));
-    }
-  });
-}
-app.use(corsMiddleware);
+app.use(cors({ origin: ['http://localhost:4200','http://127.0.0.1:4200'], allowedHeaders: ['Content-Type','Authorization'], methods: ['GET','POST','DELETE','OPTIONS'] }));
 app.use(express.json());
 
+// Público (login/register)
 app.use('/api/auth', authRoutes);
-app.use('/api/videos', videoRoutes);
-app.use('/api/admin', adminRoutes);
 
-app.listen(PORT, () => {
-  console.log(`Server: http://localhost:${PORT}`);
-});
+// 🔒 Todo lo de videos requiere estar autenticado
+app.use('/api/videos', requireAuth, videoRoutes);
+
+// 🔒 Zona admin: autenticado + rol admin
+app.use('/api/admin', requireAuth, requireAdmin, adminRoutes);
+
+app.listen(PORT, () => console.log(`Server: http://localhost:${PORT}`));

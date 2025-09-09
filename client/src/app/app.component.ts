@@ -1,5 +1,5 @@
 import { Component } from '@angular/core';
-import { RouterLink, RouterOutlet } from '@angular/router';
+import { Router, RouterLink, RouterOutlet } from '@angular/router';
 import { NgIf } from '@angular/common';
 import { AuthService } from '../services/auth.service';
 
@@ -33,6 +33,7 @@ import { MatIconModule }    from '@angular/material/icon';
   `]
 })
 export class AppComponent {
-  constructor(public auth: AuthService) {}
-  logout(){ this.auth.logout(); }
+  constructor(public auth: AuthService, private router: Router) {}
+logout(){ this.auth.logout(); this.router.navigateByUrl('/login'); }
+
 }
