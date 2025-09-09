@@ -1,4 +1,5 @@
 #!/bin/bash
+# Shell script para probar el backend localmente hecho por Bernardo F Martinez Meave
 API="http://localhost:3000/api"
 
 echo "== 1. Probar lista de videos (debe devolver []) =="
