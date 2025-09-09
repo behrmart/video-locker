@@ -53,9 +53,12 @@ export class LoginComponent {
   username = ''; password = '';
   constructor(private auth: AuthService, private router: Router, private sb: MatSnackBar) {}
   submit(){
-    this.auth.login(this.username, this.password).subscribe({
-      next: (res)=>{ this.auth.token = res.token; this.sb.open('Bienvenido ✨', 'OK', { duration: 2000 }); this.router.navigateByUrl('/'); },
-      error: (e)=>{ this.sb.open(e?.error?.error || 'Error de login', 'OK', { duration: 3000 }); }
-    });
+    // ...
+this.auth.login(this.username, this.password).subscribe({
+  next: (res)=>{ this.auth.finalizeLogin(res.token); this.sb.open('Bienvenido ✨', 'OK', { duration: 2000 }); this.router.navigateByUrl('/'); },
+// ...
+});
+
+    
   }
 }
