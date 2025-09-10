@@ -22,7 +22,8 @@ export const tokenInterceptor: HttpInterceptorFn = (req, next) => {
       if (err instanceof HttpErrorResponse && err.status === 401) {
         auth.logout();
         sb.open('Sesión expirada. Vuelve a iniciar sesión.', 'OK', { duration: 2500 });
-        router.navigateByUrl('/login');
+        router.navigate(['/login'], { queryParams: { expired: 1 } });
+
       }
       return throwError(() => err);
     })

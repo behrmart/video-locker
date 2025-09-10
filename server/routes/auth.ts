@@ -23,7 +23,7 @@ const user = await prisma.user.findUnique({ where: { username } });
 if (!user) return res.status(401).json({ error: 'Invalid credentials' });
 const ok = await bcrypt.compare(password, user.passwordHash);
 if (!ok) return res.status(401).json({ error: 'Invalid credentials' });
-const token = jwt.sign({ id: user.id, role: user.role, username: user.username }, JWT_SECRET, { expiresIn: '2d' });
+const token = jwt.sign({ id: user.id, role: user.role, username: user.username }, JWT_SECRET, { expiresIn: '5m' });
 res.json({ token, user: { id: user.id, username: user.username, role: user.role } });
 });
 
