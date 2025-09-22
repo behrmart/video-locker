@@ -1,10 +1,21 @@
+// src/app.routes.ts
 import { Routes } from '@angular/router';
 import { authGuard } from './guards/auth.guard';
 
 export const routes: Routes = [
   { path: 'login', loadComponent: () => import('./pages/login/login.component').then(m => m.LoginComponent) },
+
+  // Galería GIFs
+  { path: 'gifs', canActivate: [authGuard], loadComponent: () => import('./pages/gif-gallery/gif-gallery.component').then(m => m.GifGalleryComponent) },
+
+  // Galería de videos (home)
   { path: '', canActivate: [authGuard], loadComponent: () => import('./pages/gallery/gallery.component').then(m => m.GalleryComponent) },
+
+  // Detalle
   { path: 'video/:id', canActivate: [authGuard], loadComponent: () => import('./pages/video-detail/video-detail.component').then(m => m.VideoDetailComponent) },
+
+  // Admin
   { path: 'admin', canActivate: [authGuard], loadComponent: () => import('./pages/admin/admin.component').then(m => m.AdminComponent) },
+
   { path: '**', redirectTo: '' }
 ];
