@@ -13,6 +13,7 @@ export interface Video {
   createdAt: string;
 }
 
+
 @Injectable({ providedIn: 'root' })
 export class ApiService {
   constructor(private http: HttpClient) {}
@@ -53,5 +54,10 @@ export class ApiService {
   // 🔒 stream protegido → devolvemos Blob para <video>/<img> vía blob URL
   getStreamBlob(id: number): Observable<Blob> {
     return this.http.get(`${environment.apiUrl}/videos/${id}/stream`, { responseType: 'blob' });
+  }
+
+   // 🔥 nuevo: borrar por id (admin)
+  deleteVideo(id: number) {
+    return this.http.delete<{ ok: boolean }>(`${environment.apiUrl}/admin/videos/${id}`);
   }
 }
