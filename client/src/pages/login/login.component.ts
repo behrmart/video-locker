@@ -43,9 +43,9 @@ import { AuthService } from '../../services/auth.service';
         <div class="msg error" *ngIf="error">{{ error }}</div>
       </form>
 
-      // <div class="hint">
-      //   <b>Admin demo:</b> usuario <code>admin</code> / pass <code>admin123</code>
-      // </div>
+      /* <div class="hint">
+        <b>Admin demo:</b> usuario <code>admin</code> / pass <code>admin123</code>
+      </div> */
     </div>
   </div>
   `,
