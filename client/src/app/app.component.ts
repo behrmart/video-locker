@@ -15,6 +15,7 @@ import { AuthService } from '../services/auth.service';
     <nav class="nav">
       <a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">Videos</a>
       <a routerLink="/gifs" routerLinkActive="active">GIFs</a>
+      <a routerLink="/photos" routerLinkActive="active">Fotos</a>
       <a routerLink="/admin" routerLinkActive="active">Admin</a>
 
       <ng-container *ngIf="auth.isLoggedIn(); else loginLink">

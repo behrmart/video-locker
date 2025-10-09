@@ -11,6 +11,9 @@ export const routes: Routes = [
   // Galería de videos (home)
   { path: '', canActivate: [authGuard], loadComponent: () => import('./pages/gallery/gallery.component').then(m => m.GalleryComponent) },
 
+  // Galería de fotos
+  { path: 'photos', canActivate: [authGuard], loadComponent: () => import('./pages/photo-gallery/photo-gallery.component').then(m => m.PhotoGalleryComponent) },
+
   // Detalle
   { path: 'video/:id', canActivate: [authGuard], loadComponent: () => import('./pages/video-detail/video-detail.component').then(m => m.VideoDetailComponent) },
 

@@ -13,6 +13,14 @@ export interface Video {
   createdAt: string;
 }
 
+export interface Photo {
+  id: number;
+  title: string;
+  filename: string;
+  mimeType: string;
+  createdAt: string;
+}
+
 
 @Injectable({ providedIn: 'root' })
 export class ApiService {
@@ -21,6 +29,10 @@ export class ApiService {
   // catálogo
   listVideos(): Observable<Video[]> {
     return this.http.get<Video[]>(`${environment.apiUrl}/videos`);
+  }
+
+  listPhotos(): Observable<Photo[]> {
+    return this.http.get<Photo[]>(`${environment.apiUrl}/photos`);
   }
 
   getVideo(id: number): Observable<any> {
@@ -45,6 +57,10 @@ export class ApiService {
     return this.http.post(`${environment.apiUrl}/admin/videos`, fd);
   }
 
+  uploadPhoto(fd: FormData) {
+    return this.http.post(`${environment.apiUrl}/admin/photos`, fd);
+  }
+
   // admin (con progreso) – si lo usas
   uploadVideoWithProgress(fd: FormData): Observable<HttpEvent<any>> {
     const req = new HttpRequest('POST', `${environment.apiUrl}/admin/videos`, fd, { reportProgress: true });
@@ -56,8 +72,16 @@ export class ApiService {
     return this.http.get(`${environment.apiUrl}/videos/${id}/stream`, { responseType: 'blob' });
   }
 
-   // 🔥 nuevo: borrar por id (admin)
+  getPhotoBlob(id: number): Observable<Blob> {
+    return this.http.get(`${environment.apiUrl}/photos/${id}/stream`, { responseType: 'blob' });
+  }
+
+  // 🔥 nuevo: borrar por id (admin)
   deleteVideo(id: number) {
     return this.http.delete<{ ok: boolean }>(`${environment.apiUrl}/admin/videos/${id}`);
+  }
+
+  deletePhoto(id: number) {
+    return this.http.delete<{ ok: boolean }>(`${environment.apiUrl}/admin/photos/${id}`);
   }
 }

@@ -12,6 +12,7 @@ provider = "prisma-client-js"
 datasource db {
 provider = "mysql"
 url = env("DATABASE_URL")
+shadowDatabaseUrl = env("SHADOW_DATABASE_URL")
 }
 
 
@@ -39,6 +40,14 @@ description String? @db.Text
 views Int @default(0)
 createdAt DateTime @default(now())
 comments Comment[]
+}
+
+model Photo {
+id Int @id @default(autoincrement())
+title String @db.VarChar(191)
+filename String @db.VarChar(191)
+mimeType String @db.VarChar(191)
+createdAt DateTime @default(now())
 }
 
 

@@ -3,6 +3,7 @@ import express from 'express';
 import cors from 'cors';
 import authRoutes from './routes/auth';
 import videoRoutes from './routes/videos';
+import photoRoutes from './routes/photos';
 import adminRoutes from './routes/admin';
 import { requireAuth, requireAdmin } from './middleware/auth';
 
@@ -17,6 +18,9 @@ app.use('/api/auth', authRoutes);
 
 // 🔒 Todo lo de videos requiere estar autenticado
 app.use('/api/videos', requireAuth, videoRoutes);
+
+// 🔒 Fotos también protegidas
+app.use('/api/photos', requireAuth, photoRoutes);
 
 // 🔒 Zona admin: autenticado + rol admin
 app.use('/api/admin', requireAuth, requireAdmin, adminRoutes);
