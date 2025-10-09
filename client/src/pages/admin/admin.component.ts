@@ -97,23 +97,11 @@ ngOnInit(): void {
 }
 
 private computeIsAdmin(): boolean {
-  // 1) Intentar por 'user' en localStorage
-  try {
-    const raw = localStorage.getItem('user');
-    if (raw) {
-      const u = JSON.parse(raw);
-      if (u && String(u.role).toUpperCase() === 'ADMIN') return true;
-    }
-  } catch {}
+  const user = this.auth.user;
+  if (user && user.role === 'ADMIN') return true;
 
-  // 2) Fallback: decodificar JWT y leer role
-  const token = localStorage.getItem('token');
-  if (token) {
-    try {
-      const payload = JSON.parse(atob(token.split('.')[1] || ''));
-      if (payload && String(payload.role).toUpperCase() === 'ADMIN') return true;
-    } catch {}
-  }
+  const payload = this.auth.payload;
+  if (payload && String(payload['role']).toUpperCase() === 'ADMIN') return true;
 
   return false;
 }

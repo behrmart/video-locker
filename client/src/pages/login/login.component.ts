@@ -3,13 +3,7 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
-import { HttpClient } from '@angular/common/http';
-import { environment } from '../../environments/environment';
-
-interface LoginResponse {
-  token: string;
-  user: { id: number; username: string; role: 'ADMIN' | 'USER' };
-}
+import { AuthService } from '../../services/auth.service';
 
 @Component({
   standalone: true,
@@ -79,12 +73,13 @@ export class LoginComponent implements OnInit {
   loading = false;
   error = '';
 
-  constructor(private http: HttpClient, private router: Router) {}
+  constructor(private auth: AuthService, private router: Router) {}
 
   ngOnInit(): void {
-    // Si ya hay token, ve directo al home
-    const token = localStorage.getItem('token');
-    if (token) this.router.navigateByUrl('/');
+    // Si ya hay sesión activa, redirige directo
+    if (this.auth.isLoggedIn()) {
+      this.router.navigateByUrl('/');
+    }
   }
 
   onSubmit(): void {
@@ -92,14 +87,10 @@ export class LoginComponent implements OnInit {
     this.loading = true;
     this.error = '';
 
-    this.http.post<LoginResponse>(`${environment.apiUrl}/auth/login`, {
-      username: this.username.trim(),
-      password: this.password
-    }).subscribe({
+    this.auth.login(this.username.trim(), this.password).subscribe({
       next: (res) => {
-        // guarda token y user (lo usamos para saber si es ADMIN)
-        localStorage.setItem('token', res.token);
-        localStorage.setItem('user', JSON.stringify(res.user));
+        this.auth.finalizeLogin(res.token, res.user);
+        this.loading = false;
         this.router.navigateByUrl('/');
       },
       error: (e) => {

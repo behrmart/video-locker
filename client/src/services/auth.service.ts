@@ -3,12 +3,14 @@ import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../environments/environment';
 
-interface LoginResp { token: string; user: { id:number; username:string; role:'USER'|'ADMIN' } }
+export interface SessionUser { id: number; username: string; role: 'USER' | 'ADMIN'; }
+interface LoginResp { token: string; user: SessionUser }
 interface JwtPayload { exp?: number; iat?: number; [k: string]: any; }
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
   private key = 'vl_token';
+  private userKey = 'vl_user';
   private logoutTimer?: ReturnType<typeof setTimeout>;
 
   constructor(private http: HttpClient) {
@@ -22,6 +24,17 @@ export class AuthService {
   set token(v: string | null) {
     if (v) sessionStorage.setItem(this.key, v);
     else sessionStorage.removeItem(this.key);
+  }
+
+  get user(): SessionUser | null {
+    const raw = sessionStorage.getItem(this.userKey);
+    if (!raw) return null;
+    try { return JSON.parse(raw) as SessionUser; }
+    catch { return null; }
+  }
+  set user(v: SessionUser | null) {
+    if (v) sessionStorage.setItem(this.userKey, JSON.stringify(v));
+    else sessionStorage.removeItem(this.userKey);
   }
 
   // ==== API auth ====
@@ -68,8 +81,9 @@ export class AuthService {
     return true;
   }
 
-  finalizeLogin(token: string) {
+  finalizeLogin(token: string, user?: SessionUser) {
     this.token = token;
+    this.user = user ?? null;
     this.clearTimer();
     this.scheduleAutoLogout();
   }
@@ -77,6 +91,7 @@ export class AuthService {
   logout() {
     this.clearTimer();
     this.token = null;
+    this.user = null;
   }
 
   private scheduleAutoLogout() {
