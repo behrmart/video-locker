@@ -4,7 +4,6 @@ import multer from 'multer';
 import * as path from 'path';
 import * as fs from 'fs';
 import { prisma } from '../prisma';
-import { requireAuth, requireAdmin } from '../middleware/auth';
 
 
 const router = Router();
@@ -34,7 +33,7 @@ const uploadVideo = multer({ storage: videoStorage });
 const uploadPhoto = multer({ storage: photoStorage });
 
 
-router.post('/videos', requireAuth, requireAdmin, uploadVideo.single('file'), async (req, res) => {
+router.post('/videos', uploadVideo.single('file'), async (req, res) => {
 const { title, description } = req.body as { title: string; description?: string };
 if (!req.file || !title) return res.status(400).json({ error: 'title & file required' });
 const video = await prisma.video.create({ data: { title, description: description || null, filename: req.file.filename, mimeType: req.file.mimetype } });
@@ -42,7 +41,7 @@ res.json(video);
 });
 
 
-router.delete('/videos/:id', requireAuth, requireAdmin, async (req, res) => {
+router.delete('/videos/:id', async (req, res) => {
 const id = Number(req.params.id);
 const vid = await prisma.video.findUnique({ where: { id } });
 if (!vid) return res.status(404).json({ error: 'Not found' });
@@ -54,7 +53,7 @@ res.json({ ok: true });
 });
 
 
-router.post('/photos', requireAuth, requireAdmin, uploadPhoto.single('file'), async (req, res) => {
+router.post('/photos', uploadPhoto.single('file'), async (req, res) => {
 const { title } = req.body as { title: string };
 if (!req.file || !title) return res.status(400).json({ error: 'title & file required' });
 const photo = await prisma.photo.create({ data: { title, filename: req.file.filename, mimeType: req.file.mimetype } });
@@ -62,7 +61,7 @@ res.json(photo);
 });
 
 
-router.delete('/photos/:id', requireAuth, requireAdmin, async (req, res) => {
+router.delete('/photos/:id', async (req, res) => {
 const id = Number(req.params.id);
 const photo = await prisma.photo.findUnique({ where: { id } });
 if (!photo) return res.status(404).json({ error: 'Not found' });

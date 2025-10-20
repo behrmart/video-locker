@@ -3,8 +3,6 @@ import { Router } from 'express';
 import * as fs from 'fs';
 import * as path from 'path';
 import { prisma } from '../prisma';
-import { requireAuth } from '../middleware/auth';
-
 const router = Router();
 const MEDIA_DIR = process.env.MEDIA_DIR || path.join(process.cwd(), 'media', 'videos');
 
@@ -18,7 +16,7 @@ res.json(videos);
 });
 
 
-router.get('/:id', requireAuth, async (req, res) => {
+router.get('/:id', async (req, res) => {
 const id = Number(req.params.id);
 const video = await prisma.video.findUnique({ where: { id } });
 if (!video) return res.status(404).json({ error: 'Not found' });
@@ -26,7 +24,7 @@ res.json(video);
 });
 
 
-router.get('/:id/stream', requireAuth, async (req, res) => {
+router.get('/:id/stream', async (req, res) => {
 const id = Number(req.params.id);
 const video = await prisma.video.findUnique({ where: { id } });
 if (!video) return res.status(404).end();
@@ -57,14 +55,14 @@ fs.createReadStream(filePath).pipe(res);
 });
 
 
-router.post('/:id/view', requireAuth, async (req, res) => {
+router.post('/:id/view', async (req, res) => {
 const id = Number(req.params.id);
 await prisma.video.update({ where: { id }, data: { views: { increment: 1 } } });
 res.json({ ok: true });
 });
 
 
-router.get('/:id/comments', requireAuth, async (req, res) => {
+router.get('/:id/comments', async (req, res) => {
 const id = Number(req.params.id);
 const comments = await prisma.comment.findMany({
 where: { videoId: id },
@@ -75,7 +73,7 @@ res.json(comments.map(c => ({ id: c.id, content: c.content, createdAt: c.created
 });
 
 
-router.post('/:id/comments', requireAuth, async (req, res) => {
+router.post('/:id/comments', async (req, res) => {
 const user = (req as any).user as { id: number };
 const id = Number(req.params.id);
 const { content } = req.body;

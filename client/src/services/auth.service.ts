@@ -41,10 +41,6 @@ export class AuthService {
   login(username: string, password: string) {
     return this.http.post<LoginResp>(`${environment.apiUrl}/auth/login`, { username, password });
   }
-  register(username: string, password: string) {
-    return this.http.post(`${environment.apiUrl}/auth/register`, { username, password });
-  }
-
   // ==== helpers de JWT ====
   private decodePayload(token: string | null): JwtPayload | null {
     if (!token) return null;

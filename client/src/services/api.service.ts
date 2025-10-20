@@ -1,6 +1,6 @@
 // src/services/api.service.ts
 import { Injectable } from '@angular/core';
-import { HttpClient, HttpRequest, HttpEvent } from '@angular/common/http';
+import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../environments/environment';
 
@@ -59,12 +59,6 @@ export class ApiService {
 
   uploadPhoto(fd: FormData) {
     return this.http.post(`${environment.apiUrl}/admin/photos`, fd);
-  }
-
-  // admin (con progreso) – si lo usas
-  uploadVideoWithProgress(fd: FormData): Observable<HttpEvent<any>> {
-    const req = new HttpRequest('POST', `${environment.apiUrl}/admin/videos`, fd, { reportProgress: true });
-    return this.http.request(req);
   }
 
   // 🔒 stream protegido → devolvemos Blob para <video>/<img> vía blob URL
