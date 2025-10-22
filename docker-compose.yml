@@ -35,7 +35,7 @@ services:
         condition: service_healthy
     volumes:
       - media:/media
-      - /media/1TB/www/html:/external-media:ro
+      - ${SERVER_MEDIA_HOST_PATH}:/external-media:ro
     expose:
       - "3000"
     restart: unless-stopped
