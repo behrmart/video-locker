@@ -45,14 +45,10 @@ type FilterOption = 'all' | 'video' | 'image' | 'audio';
   <div *ngIf="!loading && filtered.length === 0" class="status">No se encontraron archivos compatibles.</div>
 
   <div *ngIf="!loading && filtered.length" class="grid">
-    <div class="card" *ngFor="let media of filtered; trackBy: trackById" (click)="select(media)">
-      <div class="avatar" [class.video]="media.type === 'video'" [class.image]="media.type === 'image'" [class.audio]="media.type === 'audio'">
-        {{ initial(media.name) }}
-      </div>
-      <div class="name">{{ media.name }}</div>
-      <div class="path">{{ media.relativePath }}</div>
-      <div class="info">{{ media.mimeType }} · {{ media.size | number }} bytes</div>
-    </div>
+    <button type="button" class="card" *ngFor="let media of filtered; trackBy: trackById" (click)="select(media)">
+      <div class="name" title="{{ media.relativePath }}">{{ media.name }}</div>
+      <div class="meta">{{ media.mimeType }} · {{ media.size | number }} bytes</div>
+    </button>
   </div>
   `,
   styles: [`
@@ -132,58 +128,47 @@ type FilterOption = 'all' | 'video' | 'image' | 'audio';
 
     .grid {
       display:grid;
-      gap:16px;
-      grid-template-columns:1fr;
+      gap:12px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
     }
-    @media (min-width: 680px) {
-      .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    }
-    @media (min-width: 1024px) {
+    @media (min-width: 580px) {
       .grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    }
+    @media (min-width: 960px) {
+      .grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
     }
 
     .card {
-      border-radius: 14px;
+      border-radius: 10px;
+      border: 1px solid #e5e7eb;
       background: #fff;
-      box-shadow: 0 2px 12px rgba(0,0,0,.08);
-      padding:16px;
+      padding:10px 12px;
       display:grid;
-      gap:8px;
+      gap:4px;
       cursor:pointer;
-      transition: transform .15s ease, box-shadow .15s ease;
-      min-height:170px;
-    }
-    .card:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 6px 20px rgba(0,0,0,.12);
-    }
-    .avatar {
-      width:52px;
-      height:52px;
-      border-radius:12px;
-      display:grid;
-      place-items:center;
-      font-weight:700;
-      font-size:20px;
-      background:#e5e7eb;
+      transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease;
+      text-align:left;
       color:#111827;
     }
-    .avatar.video { background:#dbeafe; color:#1d4ed8; }
-    .avatar.image { background:#dcfce7; color:#047857; }
-    .avatar.audio { background:#fee2e2; color:#b91c1c; }
+    .card:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(0,0,0,.1);
+      border-color:#c7d2fe;
+    }
     .name {
       font-weight:600;
-      font-size:14px;
+      font-size:13px;
       line-height:1.3;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      white-space:nowrap;
     }
-    .path {
-      color:#666;
-      font-size:12px;
-      word-break:break-all;
-    }
-    .info {
-      color:#888;
-      font-size:12px;
+    .meta {
+      color:#6b7280;
+      font-size:11px;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      white-space:nowrap;
     }
   `]
 })
@@ -241,12 +226,6 @@ export class ServerMediaComponent implements OnInit {
     if (!token) return base;
     const separator = base.includes('?') ? '&' : '?';
     return `${base}${separator}token=${encodeURIComponent(token)}`;
-  }
-
-  initial(name: string) {
-    if (!name) return '?';
-    const trimmed = name.trim();
-    return trimmed ? trimmed[0].toUpperCase() : '?';
   }
 
   trackById(_index: number, item: ServerMediaItem) {
