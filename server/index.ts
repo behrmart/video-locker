@@ -5,6 +5,7 @@ import authRoutes from './routes/auth';
 import videoRoutes from './routes/videos';
 import photoRoutes from './routes/photos';
 import adminRoutes from './routes/admin';
+import serverMediaRoutes from './routes/serverMedia';
 import { requireAuth, requireAdmin } from './middleware/auth';
 
 const app = express();
@@ -24,5 +25,8 @@ app.use('/api/photos', requireAuth, photoRoutes);
 
 // 🔒 Zona admin: autenticado + rol admin
 app.use('/api/admin', requireAuth, requireAdmin, adminRoutes);
+
+// 🔒 Biblioteca externa del servidor
+app.use('/api/server-media', requireAuth, serverMediaRoutes);
 
 app.listen(PORT, () => console.log(`Server: http://localhost:${PORT}`));

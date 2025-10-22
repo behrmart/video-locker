@@ -7,7 +7,15 @@ const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret';
 
 export function requireAuth(req: Request, res: Response, next: NextFunction) {
   const auth = req.headers.authorization || '';
-  const token = auth.startsWith('Bearer ') ? auth.slice(7) : null;
+  let token = auth.startsWith('Bearer ') ? auth.slice(7) : null;
+
+  if (!token) {
+    const queryToken = req.query.token;
+    if (typeof queryToken === 'string' && queryToken.trim().length > 0) {
+      token = queryToken.trim();
+    }
+  }
+
   if (!token) return res.status(401).json({ error: 'No token' });
   try {
     const payload = jwt.verify(token, JWT_SECRET) as JwtPayload;

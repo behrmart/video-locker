@@ -21,6 +21,16 @@ export interface Photo {
   createdAt: string;
 }
 
+export interface ServerMediaItem {
+  id: string;
+  name: string;
+  relativePath: string;
+  mimeType: string;
+  type: 'video' | 'image' | 'audio';
+  size: number;
+  modifiedAt: string;
+}
+
 
 @Injectable({ providedIn: 'root' })
 export class ApiService {
@@ -77,5 +87,14 @@ export class ApiService {
 
   deletePhoto(id: number) {
     return this.http.delete<{ ok: boolean }>(`${environment.apiUrl}/admin/photos/${id}`);
+  }
+
+  // Biblioteca de archivos en el servidor
+  listServerMedia(): Observable<ServerMediaItem[]> {
+    return this.http.get<ServerMediaItem[]>(`${environment.apiUrl}/server-media`);
+  }
+
+  serverMediaStreamUrl(id: string): string {
+    return `${environment.apiUrl}/server-media/stream/${id}`;
   }
 }
