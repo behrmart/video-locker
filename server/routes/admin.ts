@@ -42,12 +42,54 @@ const hasSymbol = /[^A-Za-z0-9]/.test(password);
 return hasMinLength && hasUpper && hasLower && hasNumber && hasSymbol;
 }
 
+function normalizePhotoTitle(rawTitle: unknown, originalName?: string): string {
+const title = typeof rawTitle === 'string' ? rawTitle.trim() : '';
+if (title) return title;
+if (!originalName) return '';
+const basename = path.parse(originalName).name;
+return basename.trim();
+}
+
 router.get('/users', async (_req, res) => {
 const users = await prisma.user.findMany({
 orderBy: { username: 'asc' },
 select: { id: true, username: true, role: true }
 });
 res.json(users);
+});
+
+router.get('/albums', async (_req, res) => {
+const albums = await prisma.album.findMany({
+orderBy: { name: 'asc' },
+include: { _count: { select: { photos: true } } }
+});
+
+res.json(albums.map(a => ({
+id: a.id,
+name: a.name,
+description: a.description,
+createdAt: a.createdAt,
+photoCount: a._count.photos
+})));
+});
+
+router.post('/albums', async (req, res) => {
+const { name, description } = req.body as { name?: string; description?: string };
+const cleanName = (name || '').trim();
+if (!cleanName) return res.status(400).json({ error: 'album name is required' });
+
+try {
+const album = await prisma.album.create({
+data: {
+name: cleanName,
+description: description?.trim() || null
+}
+});
+res.json(album);
+} catch (e: any) {
+if (e?.code === 'P2002') return res.status(409).json({ error: 'album name already exists' });
+throw e;
+}
 });
 
 router.post('/users/:id/password', async (req, res) => {
@@ -93,10 +135,80 @@ res.json({ ok: true });
 
 
 router.post('/photos', uploadPhoto.single('file'), async (req, res) => {
-const { title } = req.body as { title: string };
-if (!req.file || !title) return res.status(400).json({ error: 'title & file required' });
-const photo = await prisma.photo.create({ data: { title, filename: req.file.filename, mimeType: req.file.mimetype } });
+const { title, albumId } = req.body as { title?: string; albumId?: string };
+if (!req.file) return res.status(400).json({ error: 'file required' });
+
+const normalizedTitle = normalizePhotoTitle(title, req.file.originalname);
+if (!normalizedTitle) return res.status(400).json({ error: 'title required' });
+
+let parsedAlbumId: number | null = null;
+if (typeof albumId === 'string' && albumId.trim() !== '') {
+parsedAlbumId = Number(albumId);
+if (!Number.isInteger(parsedAlbumId) || parsedAlbumId <= 0) {
+return res.status(400).json({ error: 'invalid albumId' });
+}
+const album = await prisma.album.findUnique({ where: { id: parsedAlbumId } });
+if (!album) return res.status(404).json({ error: 'Album not found' });
+}
+
+const photo = await prisma.photo.create({
+data: {
+title: normalizedTitle,
+filename: req.file.filename,
+mimeType: req.file.mimetype,
+albumId: parsedAlbumId
+}
+});
 res.json(photo);
+});
+
+router.post('/albums/:id/photos', uploadPhoto.single('file'), async (req, res) => {
+const albumId = Number(req.params.id);
+if (!Number.isInteger(albumId) || albumId <= 0) return res.status(400).json({ error: 'invalid album id' });
+if (!req.file) return res.status(400).json({ error: 'file required' });
+
+const album = await prisma.album.findUnique({ where: { id: albumId } });
+if (!album) return res.status(404).json({ error: 'Album not found' });
+
+const { title } = req.body as { title?: string };
+const normalizedTitle = normalizePhotoTitle(title, req.file.originalname);
+if (!normalizedTitle) return res.status(400).json({ error: 'title required' });
+
+const photo = await prisma.photo.create({
+data: {
+title: normalizedTitle,
+filename: req.file.filename,
+mimeType: req.file.mimetype,
+albumId
+}
+});
+
+res.json(photo);
+});
+
+router.patch('/photos/assign-album', async (req, res) => {
+const { photoIds, albumId } = req.body as { photoIds?: number[]; albumId?: number };
+
+if (!Array.isArray(photoIds) || photoIds.length === 0) {
+return res.status(400).json({ error: 'photoIds is required' });
+}
+
+const uniqueIds = Array.from(new Set(photoIds.map(Number).filter(id => Number.isInteger(id) && id > 0)));
+if (uniqueIds.length === 0) return res.status(400).json({ error: 'photoIds are invalid' });
+
+if (!Number.isInteger(albumId) || Number(albumId) <= 0) {
+return res.status(400).json({ error: 'albumId is invalid' });
+}
+
+const album = await prisma.album.findUnique({ where: { id: Number(albumId) } });
+if (!album) return res.status(404).json({ error: 'Album not found' });
+
+const updated = await prisma.photo.updateMany({
+where: { id: { in: uniqueIds } },
+data: { albumId: Number(albumId) }
+});
+
+res.json({ ok: true, updated: updated.count, albumId: Number(albumId) });
 });
 
 

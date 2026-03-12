@@ -19,6 +19,16 @@ export interface Photo {
   filename: string;
   mimeType: string;
   createdAt: string;
+  albumId?: number | null;
+  album?: { id: number; name: string } | null;
+}
+
+export interface Album {
+  id: number;
+  name: string;
+  description?: string | null;
+  createdAt: string;
+  photoCount: number;
 }
 
 export interface ServerMediaItem {
@@ -47,8 +57,13 @@ export class ApiService {
     return this.http.get<Video[]>(`${environment.apiUrl}/videos`);
   }
 
-  listPhotos(): Observable<Photo[]> {
-    return this.http.get<Photo[]>(`${environment.apiUrl}/photos`);
+  listPhotos(albumId?: number): Observable<Photo[]> {
+    const query = typeof albumId === 'number' ? `?albumId=${albumId}` : '';
+    return this.http.get<Photo[]>(`${environment.apiUrl}/photos${query}`);
+  }
+
+  listPhotoAlbums(): Observable<Album[]> {
+    return this.http.get<Album[]>(`${environment.apiUrl}/photos/albums`);
   }
 
   getVideo(id: number): Observable<any> {
@@ -75,6 +90,25 @@ export class ApiService {
 
   uploadPhoto(fd: FormData) {
     return this.http.post(`${environment.apiUrl}/admin/photos`, fd);
+  }
+
+  listAdminAlbums() {
+    return this.http.get<Album[]>(`${environment.apiUrl}/admin/albums`);
+  }
+
+  createAlbum(name: string, description?: string) {
+    return this.http.post(`${environment.apiUrl}/admin/albums`, { name, description });
+  }
+
+  uploadPhotoToAlbum(albumId: number, fd: FormData) {
+    return this.http.post(`${environment.apiUrl}/admin/albums/${albumId}/photos`, fd);
+  }
+
+  assignPhotosToAlbum(photoIds: number[], albumId: number) {
+    return this.http.patch<{ ok: boolean; updated: number; albumId: number }>(
+      `${environment.apiUrl}/admin/photos/assign-album`,
+      { photoIds, albumId }
+    );
   }
 
   // 🔒 stream protegido → devolvemos Blob para <video>/<img> vía blob URL

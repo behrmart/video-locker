@@ -1,6 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ApiService, Video, Photo, AdminUser } from '../../services/api.service';
+import { ApiService, Video, Photo, AdminUser, Album } from '../../services/api.service';
 import { Router } from '@angular/router';
 import { AuthService } from '../../services/auth.service';
 
@@ -44,12 +44,31 @@ import { AuthService } from '../../services/auth.service';
   </section>
 
   <section class="card">
-    <h3>Subir foto</h3>
-    <form (submit)="onPhotoUpload($event)">
-      <input type="text" name="title" placeholder="Título" required>
-      <input type="file" name="file" accept="image/*" required>
-      <button>Subir foto</button>
+    <h3>Álbumes de fotos</h3>
+
+    <form (submit)="onCreateAlbum($event)">
+      <input type="text" name="name" placeholder="Nombre del álbum (persona/lugar)" required>
+      <input type="text" name="description" placeholder="Descripción (opcional)">
+      <button>Crear álbum</button>
     </form>
+    <div *ngIf="albumMsg" class="msg">{{ albumMsg }}</div>
+
+    <div class="albums-grid" *ngIf="albums.length; else emptyAlbums">
+      <article class="album-item" *ngFor="let a of albums; trackBy: trackByAlbumId">
+        <div class="album-title">{{ a.name }}</div>
+        <div class="album-meta">{{ a.photoCount }} fotos</div>
+        <div class="album-meta" *ngIf="a.description">{{ a.description }}</div>
+
+        <form (submit)="onUploadToAlbum($event, a.id)">
+          <input type="text" name="title" placeholder="Título de la foto (opcional)">
+          <input type="file" name="file" accept="image/*" required>
+          <button>Subir a este álbum</button>
+        </form>
+      </article>
+    </div>
+    <ng-template #emptyAlbums>
+      <div class="msg muted">No hay álbumes. Crea uno para clasificar fotos por persona o lugar.</div>
+    </ng-template>
     <div *ngIf="photoUploadMsg" class="msg">{{ photoUploadMsg }}</div>
   </section>
 
@@ -86,7 +105,9 @@ import { AuthService } from '../../services/auth.service';
     <div class="photos-grid" *ngIf="photos.length; else emptyPhotos">
       <div class="photo-item" *ngFor="let p of photos; trackBy: trackByPhotoId">
         <div class="title" [title]="p.title">{{ p.title }}</div>
-        <div class="meta">{{ p.mimeType }} · {{ p.createdAt | date:'yyyy-MM-dd HH:mm' }}</div>
+        <div class="meta">
+          {{ p.album?.name || 'Sin álbum' }} · {{ p.mimeType }} · {{ p.createdAt | date:'yyyy-MM-dd HH:mm' }}
+        </div>
         <div class="actions">
           <button class="danger" (click)="onDeletePhoto(p)">Borrar</button>
         </div>
@@ -122,14 +143,21 @@ import { AuthService } from '../../services/auth.service';
     .photo-item{display:grid;gap:4px;padding:10px;border:1px solid #ececec;border-radius:10px;background:#fafafa}
     .photo-item .title{font-weight:600}
     .photo-item .meta{font-size:12px;color:#666}
+    .albums-grid{display:grid;gap:10px;margin-top:10px}
+    @media(min-width:900px){.albums-grid{grid-template-columns:repeat(auto-fit,minmax(260px,1fr));}}
+    .album-item{display:grid;gap:8px;padding:10px;border:1px solid #ececec;border-radius:10px;background:#fafafa}
+    .album-title{font-weight:700}
+    .album-meta{font-size:12px;color:#666}
   `]
 })
 export class AdminComponent implements OnInit {
   videos: Video[] = [];
   photos: Photo[] = [];
   users: AdminUser[] = [];
+  albums: Album[] = [];
   uploadMsg = '';
   photoUploadMsg = '';
+  albumMsg = '';
   passwordMsg = '';
   listMsg = '';
   userListMsg = '';
@@ -167,6 +195,7 @@ private computeIsAdmin(): boolean {
 
   load() {
     this.fetchUsers();
+    this.fetchAlbums();
     this.fetchVideos();
     this.fetchPhotos();
   }
@@ -238,17 +267,47 @@ private computeIsAdmin(): boolean {
 
   trackById(_i: number, v: Video) { return v.id; }
 
-  onPhotoUpload(ev: Event) {
+  onCreateAlbum(ev: Event) {
     ev.preventDefault();
     const form = ev.target as HTMLFormElement;
     const fd = new FormData(form);
-    const title = (fd.get('title') || '').toString().trim();
+    const name = (fd.get('name') || '').toString().trim();
+    const description = (fd.get('description') || '').toString().trim();
+    if (!name) { this.albumMsg = 'El nombre del álbum es obligatorio.'; return; }
+
+    this.albumMsg = 'Creando álbum…';
+    this.api.createAlbum(name, description || undefined).subscribe({
+      next: () => {
+        this.albumMsg = 'Álbum creado ✅';
+        form.reset();
+        this.fetchAlbums();
+      },
+      error: e => {
+        console.error(e);
+        this.albumMsg = e?.error?.error ? `No se pudo crear: ${e.error.error}` : 'No se pudo crear el álbum.';
+      }
+    });
+  }
+
+  onUploadToAlbum(ev: Event, albumId: number) {
+    ev.preventDefault();
+    const form = ev.target as HTMLFormElement;
+    const fd = new FormData(form);
     const file = fd.get('file') as File | null;
-    if (!title || !file) { this.photoUploadMsg = 'Falta título o archivo.'; return; }
-    this.photoUploadMsg = 'Subiendo…';
-    this.api.uploadPhoto(fd).subscribe({
-      next: () => { this.photoUploadMsg = 'Foto subida ✅'; form.reset(); this.fetchPhotos(); },
-      error: e => { console.error(e); this.photoUploadMsg = 'Error al subir la foto.'; }
+    if (!file) { this.photoUploadMsg = 'Selecciona una foto para subir.'; return; }
+
+    this.photoUploadMsg = 'Subiendo foto al álbum…';
+    this.api.uploadPhotoToAlbum(albumId, fd).subscribe({
+      next: () => {
+        this.photoUploadMsg = 'Foto subida ✅';
+        form.reset();
+        this.fetchPhotos();
+        this.fetchAlbums();
+      },
+      error: e => {
+        console.error(e);
+        this.photoUploadMsg = e?.error?.error ? `No se pudo subir: ${e.error.error}` : 'Error al subir la foto.';
+      }
     });
   }
 
@@ -268,6 +327,7 @@ private computeIsAdmin(): boolean {
 
   trackByPhotoId(_i: number, p: Photo) { return p.id; }
   trackByUserId(_i: number, u: AdminUser) { return u.id; }
+  trackByAlbumId(_i: number, a: Album) { return a.id; }
 
   private fetchUsers() {
     this.userListMsg = 'Cargando usuarios…';
@@ -280,6 +340,17 @@ private computeIsAdmin(): boolean {
         console.error(e);
         this.users = [];
         this.userListMsg = 'No se pudieron cargar los usuarios.';
+      }
+    });
+  }
+
+  private fetchAlbums() {
+    this.api.listAdminAlbums().subscribe({
+      next: albums => { this.albums = albums; },
+      error: e => {
+        console.error(e);
+        this.albums = [];
+        this.albumMsg = 'No se pudieron cargar los álbumes.';
       }
     });
   }

@@ -48,6 +48,17 @@ title String @db.VarChar(191)
 filename String @db.VarChar(191)
 mimeType String @db.VarChar(191)
 createdAt DateTime @default(now())
+albumId Int?
+album Album? @relation(fields: [albumId], references: [id], onDelete: SetNull)
+@@index([albumId])
+}
+
+model Album {
+id Int @id @default(autoincrement())
+name String @unique @db.VarChar(191)
+description String? @db.Text
+createdAt DateTime @default(now())
+photos Photo[]
 }
 
 
