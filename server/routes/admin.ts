@@ -3,6 +3,7 @@ import { Router } from 'express';
 import multer from 'multer';
 import * as path from 'path';
 import * as fs from 'fs';
+import bcrypt from 'bcryptjs';
 import { prisma } from '../prisma';
 
 
@@ -31,6 +32,44 @@ cb(null, `${ts}_${safe}`);
 });
 const uploadVideo = multer({ storage: videoStorage });
 const uploadPhoto = multer({ storage: photoStorage });
+
+function isStrongPassword(password: string): boolean {
+const hasMinLength = password.length >= 8;
+const hasUpper = /[A-Z]/.test(password);
+const hasLower = /[a-z]/.test(password);
+const hasNumber = /[0-9]/.test(password);
+const hasSymbol = /[^A-Za-z0-9]/.test(password);
+return hasMinLength && hasUpper && hasLower && hasNumber && hasSymbol;
+}
+
+router.get('/users', async (_req, res) => {
+const users = await prisma.user.findMany({
+orderBy: { username: 'asc' },
+select: { id: true, username: true, role: true }
+});
+res.json(users);
+});
+
+router.post('/users/:id/password', async (req, res) => {
+const id = Number(req.params.id);
+const { password } = req.body as { password?: string };
+
+if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'invalid user id' });
+if (!password || !isStrongPassword(password)) {
+return res.status(400).json({
+error: 'weak password',
+details: 'Password must be at least 8 characters and include uppercase, lowercase, number, and symbol.'
+});
+}
+
+const user = await prisma.user.findUnique({ where: { id } });
+if (!user) return res.status(404).json({ error: 'User not found' });
+
+const hash = await bcrypt.hash(password, 10);
+await prisma.user.update({ where: { id }, data: { passwordHash: hash } });
+
+res.json({ ok: true });
+});
 
 
 router.post('/videos', uploadVideo.single('file'), async (req, res) => {

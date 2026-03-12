@@ -1,6 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ApiService, Video, Photo } from '../../services/api.service';
+import { ApiService, Video, Photo, AdminUser } from '../../services/api.service';
 import { Router } from '@angular/router';
 import { AuthService } from '../../services/auth.service';
 
@@ -14,6 +14,23 @@ import { AuthService } from '../../services/auth.service';
   <div class="note" *ngIf="!isAdmin">
     Debes ser <b>ADMIN</b> para usar esta página. Redirigiendo…
   </div>
+
+  <section class="card">
+    <h3>Cambiar contraseña de usuario</h3>
+    <form (submit)="onChangePassword($event)">
+      <select name="userId" required>
+        <option value="" disabled selected>Selecciona un usuario</option>
+        <option *ngFor="let u of users; trackBy: trackByUserId" [value]="u.id">
+          {{ u.username }} ({{ u.role }})
+        </option>
+      </select>
+      <input type="password" name="password" placeholder="Nueva contraseña (mínimo 8 caracteres)" minlength="8" required>
+      <input type="password" name="confirmPassword" placeholder="Confirmar contraseña" minlength="8" required>
+      <button>Cambiar contraseña</button>
+    </form>
+    <div *ngIf="userListMsg" class="msg">{{ userListMsg }}</div>
+    <div *ngIf="passwordMsg" class="msg">{{ passwordMsg }}</div>
+  </section>
 
   <section class="card">
     <h3>Subir video / GIF</h3>
@@ -86,7 +103,7 @@ import { AuthService } from '../../services/auth.service';
     h2{margin-bottom:12px}
     .card{background:#fff;border-radius:12px;padding:14px;margin:12px 0;box-shadow:0 2px 10px rgba(0,0,0,.06)}
     form{display:grid;gap:10px}
-    input[type="text"], textarea, input[type="file"] {padding:8px;border:1px solid #ddd;border-radius:10px}
+    input[type="text"], input[type="password"], textarea, input[type="file"], select {padding:8px;border:1px solid #ddd;border-radius:10px}
     button{padding:8px 12px;border:1px solid #ddd;background:#fff;border-radius:10px;cursor:pointer}
     button:hover{background:#f7f7f7}
     .danger{border-color:#e28686;color:#b40000}
@@ -110,9 +127,12 @@ import { AuthService } from '../../services/auth.service';
 export class AdminComponent implements OnInit {
   videos: Video[] = [];
   photos: Photo[] = [];
+  users: AdminUser[] = [];
   uploadMsg = '';
   photoUploadMsg = '';
+  passwordMsg = '';
   listMsg = '';
+  userListMsg = '';
   photoListMsg = '';
   isAdmin = false;
 
@@ -146,8 +166,46 @@ private computeIsAdmin(): boolean {
 
 
   load() {
+    this.fetchUsers();
     this.fetchVideos();
     this.fetchPhotos();
+  }
+
+  onChangePassword(ev: Event) {
+    ev.preventDefault();
+    const form = ev.target as HTMLFormElement;
+    const fd = new FormData(form);
+    const userId = Number(fd.get('userId'));
+    const password = (fd.get('password') || '').toString();
+    const confirmPassword = (fd.get('confirmPassword') || '').toString();
+
+    if (!userId || Number.isNaN(userId)) {
+      this.passwordMsg = 'Selecciona un usuario.';
+      return;
+    }
+    if (password.length < 8) {
+      this.passwordMsg = 'La contraseña debe tener al menos 8 caracteres.';
+      return;
+    }
+    if (password !== confirmPassword) {
+      this.passwordMsg = 'La confirmación no coincide.';
+      return;
+    }
+
+    this.passwordMsg = 'Actualizando contraseña…';
+    this.api.adminChangeUserPassword(userId, password).subscribe({
+      next: () => {
+        this.passwordMsg = 'Contraseña actualizada ✅';
+        form.reset();
+      },
+      error: (e) => {
+        console.error(e);
+        const backendMessage = e?.error?.details || e?.error?.error;
+        this.passwordMsg = backendMessage
+          ? `No se pudo actualizar: ${backendMessage}`
+          : 'No se pudo actualizar la contraseña.';
+      }
+    });
   }
 
   onUpload(ev: Event) {
@@ -209,6 +267,22 @@ private computeIsAdmin(): boolean {
   }
 
   trackByPhotoId(_i: number, p: Photo) { return p.id; }
+  trackByUserId(_i: number, u: AdminUser) { return u.id; }
+
+  private fetchUsers() {
+    this.userListMsg = 'Cargando usuarios…';
+    this.api.listUsers().subscribe({
+      next: users => {
+        this.users = users;
+        this.userListMsg = users.length ? '' : 'No hay usuarios registrados.';
+      },
+      error: e => {
+        console.error(e);
+        this.users = [];
+        this.userListMsg = 'No se pudieron cargar los usuarios.';
+      }
+    });
+  }
 
   private fetchVideos() {
     this.listMsg = 'Cargando…';

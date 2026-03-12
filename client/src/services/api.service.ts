@@ -31,6 +31,12 @@ export interface ServerMediaItem {
   modifiedAt: string;
 }
 
+export interface AdminUser {
+  id: number;
+  username: string;
+  role: 'USER' | 'ADMIN';
+}
+
 
 @Injectable({ providedIn: 'root' })
 export class ApiService {
@@ -87,6 +93,14 @@ export class ApiService {
 
   deletePhoto(id: number) {
     return this.http.delete<{ ok: boolean }>(`${environment.apiUrl}/admin/photos/${id}`);
+  }
+
+  listUsers() {
+    return this.http.get<AdminUser[]>(`${environment.apiUrl}/admin/users`);
+  }
+
+  adminChangeUserPassword(userId: number, password: string) {
+    return this.http.post<{ ok: boolean }>(`${environment.apiUrl}/admin/users/${userId}/password`, { password });
   }
 
   // Biblioteca de archivos en el servidor
