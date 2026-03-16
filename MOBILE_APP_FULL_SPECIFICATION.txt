@@ -1,0 +1,1248 @@
+VIDEO LOCKER - SERVER AND CLIENT FULL SPECIFICATION
+Generated from the current codebase on 2026-03-16
+
+1. Purpose
+
+This document describes the current Server and Client applications so a separate Android mobile app can be implemented in Android Studio against the same backend.
+
+The system is a private authenticated media library with:
+- user login
+- JWT-based authentication
+- video and GIF browsing
+- video detail with comments
+- photo gallery with albums
+- external server media browser
+- admin-only media management and user password management
+
+
+2. High-Level Architecture
+
+Repository layout:
+- server/: Node.js + Express 5 + TypeScript + Prisma + MariaDB
+- client/: Angular 19 standalone app
+
+Runtime topology from docker-compose:
+- MariaDB database
+- Node/Express API server on port 3000 internally
+- Angular client served by nginx on port 8080 externally
+
+Default client API base URL:
+- /api
+
+In Docker this means browser requests go to the nginx frontend and nginx proxies to the server API.
+
+
+3. Technology Stack
+
+Server:
+- Node.js
+- Express 5
+- TypeScript
+- Prisma ORM
+- MariaDB / MySQL
+- JWT with jsonwebtoken
+- bcryptjs for password hashing
+- multer for multipart file upload
+
+Client:
+- Angular 19
+- Angular Router
+- Angular Forms
+- Angular Material snackbar only for session-expired toast
+- HTTP interceptor for JWT injection
+
+
+4. Authentication and Authorization
+
+4.1 Auth model
+
+Authentication uses a signed JWT.
+
+JWT payload fields:
+- id: number
+- role: "USER" or "ADMIN"
+- username: string
+
+Token lifetime:
+- 30 minutes
+
+Signing secret:
+- JWT_SECRET environment variable
+- fallback in code: "dev-secret"
+
+4.2 Login flow
+
+Endpoint:
+- POST /api/auth/login
+
+Request JSON:
+- username: string
+- password: string
+
+Success response:
+- token: string
+- user:
+  - id: number
+  - username: string
+  - role: "USER" | "ADMIN"
+
+Error response:
+- 401 { "error": "Invalid credentials" }
+
+4.3 Registration flow
+
+Endpoint:
+- POST /api/auth/register
+
+Request JSON:
+- username: string
+- password: string
+
+Success response:
+- id: number
+- username: string
+
+Rules:
+- username required
+- password required
+- new users are created with role USER
+- duplicate username returns 409
+
+Important current product note:
+- the backend supports registration
+- the Angular client does not expose a registration screen
+- the Android app can choose whether to expose registration or keep login-only behavior
+
+4.4 Auth transport
+
+Protected endpoints require:
+- Authorization: Bearer <token>
+
+Special case:
+- the auth middleware also accepts token as query parameter "token"
+- this exists to support direct media streaming URLs in the browser
+- example: /api/server-media/stream/:id?token=<jwt>
+
+4.5 Session behavior in current web client
+
+Angular stores session in sessionStorage:
+- vl_token
+- vl_user
+
+Behavior:
+- token is automatically added to outgoing requests by an HTTP interceptor
+- if a request returns 401, the client logs out and redirects to /login
+- the client decodes JWT exp locally and auto-logs out when expired
+- there is no refresh token mechanism
+
+Android implementation guidance:
+- store JWT securely
+- treat 401 as session expiration
+- redirect user to login on expiration
+- there is no token refresh endpoint, so re-login is required
+
+4.6 Authorization rules
+
+Route protection on server:
+- /api/auth/* is public
+- /api/videos/* requires authenticated user
+- /api/photos/* requires authenticated user
+- /api/server-media/* requires authenticated user
+- /api/admin/* requires authenticated user with ADMIN role
+
+Client-side role handling:
+- the Angular route for /admin only checks "logged in"
+- the actual admin page then checks role locally and redirects non-admin users away
+- the backend is the real enforcement layer
+
+
+5. CORS and Networking
+
+Current Express CORS config allows:
+- origins:
+  - http://localhost:4200
+  - http://127.0.0.1:4200
+- headers:
+  - Content-Type
+  - Authorization
+- methods:
+  - GET
+  - POST
+  - DELETE
+  - OPTIONS
+
+Important implementation note:
+- the server has an admin PATCH endpoint
+- current CORS config does not list PATCH
+- this may matter for browser clients depending on deployment/proxy behavior
+- a native Android app is not constrained by browser CORS, so the mobile app can still call the PATCH endpoint directly
+
+
+6. Data Model
+
+6.1 User
+
+Fields:
+- id: Int, auto increment
+- username: unique string
+- passwordHash: string
+- role: USER | ADMIN
+
+Relations:
+- one user has many comments
+
+6.2 Video
+
+Fields:
+- id: Int, auto increment
+- title: string
+- filename: string
+- mimeType: string
+- description: nullable text
+- views: Int, default 0
+- createdAt: DateTime
+
+Relations:
+- one video has many comments
+
+Notes:
+- both real videos and GIF entries are stored in this table
+- the client distinguishes them by mimeType
+
+6.3 Comment
+
+Fields:
+- id: Int, auto increment
+- content: text
+- createdAt: DateTime
+- videoId: Int
+- userId: Int
+
+Relations:
+- belongs to one video
+- belongs to one user
+
+6.4 Album
+
+Fields:
+- id: Int, auto increment
+- name: unique string
+- description: nullable text
+- createdAt: DateTime
+
+Relations:
+- one album has many photos
+
+6.5 Photo
+
+Fields:
+- id: Int, auto increment
+- title: string
+- filename: string
+- mimeType: string
+- createdAt: DateTime
+- albumId: nullable Int
+
+Relations:
+- belongs optionally to one album
+
+
+7. Storage and Media Directories
+
+Server environment variables:
+- PORT
+- DATABASE_URL
+- SHADOW_DATABASE_URL
+- JWT_SECRET
+- MEDIA_DIR
+- MEDIA_PHOTOS_DIR
+- SERVER_MEDIA_DIR
+
+Media directories:
+- uploaded videos/GIFs are stored in MEDIA_DIR, default process.cwd()/media/videos
+- uploaded photos are stored in MEDIA_PHOTOS_DIR, default process.cwd()/media/photos
+- server-side external media browsing reads SERVER_MEDIA_DIR, default /media/1TB/www/html
+
+Filename handling for uploads:
+- multer stores uploaded files on disk
+- final stored filename format is:
+  <timestamp>_<sanitized_original_name>
+- invalid filename characters are replaced with "_"
+
+
+8. Backend API Specification
+
+Base path:
+- /api
+
+8.1 Auth Endpoints
+
+8.1.1 POST /api/auth/register
+
+Auth required:
+- No
+
+Request body:
+{
+  "username": "string",
+  "password": "string"
+}
+
+Success:
+200 OK
+{
+  "id": 123,
+  "username": "string"
+}
+
+Errors:
+- 400 { "error": "username & password required" }
+- 409 { "error": "username taken" }
+
+8.1.2 POST /api/auth/login
+
+Auth required:
+- No
+
+Request body:
+{
+  "username": "string",
+  "password": "string"
+}
+
+Success:
+200 OK
+{
+  "token": "jwt",
+  "user": {
+    "id": 1,
+    "username": "admin",
+    "role": "ADMIN"
+  }
+}
+
+Errors:
+- 401 { "error": "Invalid credentials" }
+
+
+8.2 Video Catalog Endpoints
+
+All /api/videos endpoints require authentication.
+
+8.2.1 GET /api/videos
+
+Purpose:
+- list all video records, including GIF records stored in the same table
+
+Success response:
+[
+  {
+    "id": 1,
+    "title": "Example",
+    "views": 10,
+    "description": "Optional text",
+    "mimeType": "video/mp4",
+    "createdAt": "2026-03-16T12:34:56.000Z"
+  }
+]
+
+Sort order:
+- createdAt descending
+
+Client usage:
+- Angular home page filters to mimeType starting with "video/"
+- Angular GIF page filters to mimeType exactly "image/gif"
+
+8.2.2 GET /api/videos/:id
+
+Purpose:
+- fetch full video record
+
+Success response:
+{
+  "id": 1,
+  "title": "Example",
+  "filename": "stored_file.mp4",
+  "mimeType": "video/mp4",
+  "description": "Optional text",
+  "views": 10,
+  "createdAt": "2026-03-16T12:34:56.000Z"
+}
+
+Errors:
+- 404 { "error": "Not found" }
+
+8.2.3 GET /api/videos/:id/stream
+
+Purpose:
+- protected media streaming endpoint for a video or GIF
+
+Behavior:
+- looks up the database record
+- resolves file from MEDIA_DIR + filename
+- streams file bytes
+- supports HTTP Range requests for partial video playback
+- if no Range header is sent, returns full content
+
+Headers:
+- Content-Type: from stored mimeType, fallback application/octet-stream
+- video/audio range requests return 206 Partial Content
+
+Responses:
+- 200 full stream
+- 206 partial stream
+- 404 if record missing or file missing
+
+Android guidance:
+- use authenticated request with Bearer token
+- for ExoPlayer or Media3, use authenticated HTTP datasource
+- for GIF/image preview, a normal authenticated download/display path is sufficient
+
+8.2.4 POST /api/videos/:id/view
+
+Purpose:
+- increment the view counter by 1
+
+Request body:
+- empty JSON object in current client, but body is ignored
+
+Success:
+{
+  "ok": true
+}
+
+Notes:
+- current Angular client calls this when the video player emits play
+- repeated plays can increment multiple times
+- there is no de-duplication by user/device/session
+
+8.2.5 GET /api/videos/:id/comments
+
+Purpose:
+- list comments for a video
+
+Success response:
+[
+  {
+    "id": 10,
+    "content": "Nice video",
+    "createdAt": "2026-03-16T12:34:56.000Z",
+    "username": "bernardo"
+  }
+]
+
+Sort order:
+- createdAt descending
+
+8.2.6 POST /api/videos/:id/comments
+
+Purpose:
+- create a comment as the authenticated user
+
+Request body:
+{
+  "content": "string"
+}
+
+Success response:
+- raw created Prisma comment object
+- currently includes at least id, content, createdAt, videoId, userId
+
+Errors:
+- 400 { "error": "content required" }
+
+Important note:
+- the server does not validate whether the video exists before insert
+- behavior therefore depends on DB referential integrity
+
+
+8.3 Photo and Album Read Endpoints
+
+All /api/photos endpoints require authentication.
+
+8.3.1 GET /api/photos/albums
+
+Purpose:
+- list all albums with photo counts
+
+Success response:
+[
+  {
+    "id": 1,
+    "name": "Family",
+    "description": "Optional",
+    "createdAt": "2026-03-16T12:34:56.000Z",
+    "photoCount": 42
+  }
+]
+
+Sort order:
+- name ascending
+
+8.3.2 GET /api/photos
+
+Purpose:
+- list photos
+- optional filtering by album
+
+Query params:
+- albumId: optional integer
+
+Examples:
+- /api/photos
+- /api/photos?albumId=3
+
+Success response:
+[
+  {
+    "id": 7,
+    "title": "Beach",
+    "filename": "12345_beach.jpg",
+    "mimeType": "image/jpeg",
+    "createdAt": "2026-03-16T12:34:56.000Z",
+    "albumId": 3,
+    "album": {
+      "id": 3,
+      "name": "Vacation"
+    }
+  }
+]
+
+Sort order:
+- createdAt descending
+
+Validation:
+- invalid albumId returns 400
+
+Error:
+- 400 { "error": "Invalid albumId" }
+
+8.3.3 GET /api/photos/:id/stream
+
+Purpose:
+- stream/download a photo file
+
+Behavior:
+- finds photo record
+- resolves file from MEDIA_PHOTOS_DIR + filename
+- streams full file with Content-Type set to stored mimeType
+- no Range support implemented
+
+Responses:
+- 200 image stream
+- 404 { "error": "Not found" }
+- 404 { "error": "File missing" }
+
+
+8.4 External Server Media Endpoints
+
+All /api/server-media endpoints require authentication.
+
+Purpose:
+- expose a read-only browser over an external directory on the server filesystem
+
+Supported file types:
+- video: .mp4 .mkv .webm .mov .m4v .avi .mpg .mpeg .ts
+- image: .jpg .jpeg .png .gif .bmp .webp
+- audio: .mp3 .m4a .aac .ogg .oga .wav .flac
+
+Hidden files/directories:
+- skipped if name starts with "."
+
+8.4.1 GET /api/server-media
+
+Purpose:
+- recursively list supported files from SERVER_MEDIA_DIR
+
+Success response:
+[
+  {
+    "id": "base64url_relative_path",
+    "name": "movie.mp4",
+    "relativePath": "Movies/movie.mp4",
+    "mimeType": "video/mp4",
+    "type": "video",
+    "size": 123456789,
+    "modifiedAt": "2026-03-16T12:34:56.000Z"
+  }
+]
+
+Sort order:
+- modifiedAt descending
+
+ID format:
+- base64url encoded relative path
+- this id is opaque to clients and should be treated as a token string
+
+8.4.2 GET /api/server-media/stream/:id
+
+Purpose:
+- stream or download an external media file
+
+Auth:
+- Bearer token works
+- query token also works and is what the Angular client uses for direct <video>/<audio>/<img> tags
+
+Behavior:
+- decodes id to relative path
+- validates final path stays inside SERVER_MEDIA_DIR
+- rejects path traversal
+- returns 400 if path is invalid
+- range requests are supported only for video/audio
+- images are returned as full-body 200 responses
+
+Possible errors:
+- 400 { "error": "Invalid path" }
+- 404 { "error": "File not found" }
+- 404 { "error": "Unsupported file" }
+- 416 on invalid byte range
+- 500 { "error": "Unable to stream media" }
+
+
+8.5 Admin Endpoints
+
+All /api/admin endpoints require:
+- valid JWT
+- role ADMIN
+
+If not authenticated:
+- 401 { "error": "No token" } or { "error": "Invalid token" }
+
+If authenticated but not admin:
+- 403 { "error": "Admin only" }
+
+8.5.1 GET /api/admin/users
+
+Purpose:
+- list users for admin operations
+
+Success response:
+[
+  {
+    "id": 1,
+    "username": "admin",
+    "role": "ADMIN"
+  }
+]
+
+Sort order:
+- username ascending
+
+8.5.2 POST /api/admin/users/:id/password
+
+Purpose:
+- change another user's password
+
+Request body:
+{
+  "password": "StrongPass1!"
+}
+
+Password rules enforced by server:
+- minimum 8 characters
+- at least 1 uppercase letter
+- at least 1 lowercase letter
+- at least 1 number
+- at least 1 symbol
+
+Success:
+{
+  "ok": true
+}
+
+Errors:
+- 400 { "error": "invalid user id" }
+- 400 { "error": "weak password", "details": "Password must be at least 8 characters and include uppercase, lowercase, number, and symbol." }
+- 404 { "error": "User not found" }
+
+8.5.3 GET /api/admin/albums
+
+Purpose:
+- same album list as public authenticated album read, but under admin namespace
+
+Success response:
+same shape as GET /api/photos/albums
+
+8.5.4 POST /api/admin/albums
+
+Purpose:
+- create a new photo album
+
+Request body:
+{
+  "name": "Album name",
+  "description": "Optional"
+}
+
+Rules:
+- name required after trim
+- name must be unique
+- description stored as null if empty
+
+Success response:
+- raw created Prisma album object
+
+Errors:
+- 400 { "error": "album name is required" }
+- 409 { "error": "album name already exists" }
+
+8.5.5 POST /api/admin/videos
+
+Purpose:
+- upload a new video or GIF entry
+
+Content-Type:
+- multipart/form-data
+
+Form fields:
+- title: required string
+- description: optional string
+- file: required file
+
+Accepted file types:
+- no server-side mime whitelist
+- current web form accepts video/* and image/gif
+
+Success response:
+- raw created Prisma video object
+
+Errors:
+- 400 { "error": "title & file required" }
+
+Storage:
+- file saved to MEDIA_DIR
+- DB row inserted into Video table
+
+8.5.6 DELETE /api/admin/videos/:id
+
+Purpose:
+- permanently delete a video/GIF
+
+Behavior:
+- finds video
+- deletes related comments
+- deletes video record
+- deletes physical file if present
+
+Success:
+{
+  "ok": true
+}
+
+Errors:
+- 404 { "error": "Not found" }
+
+8.5.7 POST /api/admin/photos
+
+Purpose:
+- upload a photo, optionally already assigned to an album
+
+Content-Type:
+- multipart/form-data
+
+Form fields:
+- file: required
+- title: optional string
+- albumId: optional string/integer
+
+Title behavior:
+- if title is blank, server uses original filename without extension
+
+Album behavior:
+- if albumId present, it must be a valid positive integer and existing album
+
+Success response:
+- raw created Prisma photo object
+
+Errors:
+- 400 { "error": "file required" }
+- 400 { "error": "title required" }
+- 400 { "error": "invalid albumId" }
+- 404 { "error": "Album not found" }
+
+8.5.8 POST /api/admin/albums/:id/photos
+
+Purpose:
+- upload a photo directly into a specific album
+
+Content-Type:
+- multipart/form-data
+
+Path param:
+- id: album id
+
+Form fields:
+- file: required
+- title: optional string
+
+Title behavior:
+- same normalization as generic photo upload
+
+Success response:
+- raw created Prisma photo object
+
+Errors:
+- 400 { "error": "invalid album id" }
+- 400 { "error": "file required" }
+- 400 { "error": "title required" }
+- 404 { "error": "Album not found" }
+
+8.5.9 PATCH /api/admin/photos/assign-album
+
+Purpose:
+- assign multiple existing photos to one album
+
+Request body:
+{
+  "photoIds": [1, 2, 3],
+  "albumId": 4
+}
+
+Behavior:
+- de-duplicates photoIds
+- filters invalid/non-positive ids
+- updates all matching Photo rows
+
+Success response:
+{
+  "ok": true,
+  "updated": 3,
+  "albumId": 4
+}
+
+Errors:
+- 400 { "error": "photoIds is required" }
+- 400 { "error": "photoIds are invalid" }
+- 400 { "error": "albumId is invalid" }
+- 404 { "error": "Album not found" }
+
+8.5.10 DELETE /api/admin/photos/:id
+
+Purpose:
+- permanently delete a photo
+
+Behavior:
+- deletes DB row
+- deletes physical file if present
+
+Success:
+{
+  "ok": true
+}
+
+Errors:
+- 404 { "error": "Not found" }
+
+
+9. Common Error Behavior
+
+Auth middleware errors:
+- 401 { "error": "No token" }
+- 401 { "error": "Invalid token" }
+
+Admin middleware errors:
+- 401 { "error": "Not Authenticated" }
+- 403 { "error": "Admin only" }
+
+General notes:
+- many route handlers do not wrap logic in try/catch
+- server-side unhandled exceptions may result in generic 500 responses or Express default behavior
+- Android client should handle:
+  - 400 validation errors
+  - 401 expired/invalid session
+  - 403 permission denial
+  - 404 missing resource
+  - 409 uniqueness conflicts
+  - 500 unexpected failure
+
+
+10. Current Angular Client Specification
+
+10.1 Navigation / Screens
+
+Defined routes:
+- /login
+- /gifs
+- /
+- /photos
+- /server-media
+- /video/:id
+- /admin
+
+All routes except /login require authGuard.
+
+10.2 Global shell
+
+Header nav links:
+- Videos
+- GIFs
+- Fotos
+- Servidor
+- Admin
+- Login or Logout button depending on session state
+
+10.3 Login screen
+
+Features:
+- username input
+- password input
+- submit button
+- inline error display
+- if already logged in, redirects to /
+
+API used:
+- POST /api/auth/login
+
+10.4 Videos screen
+
+Route:
+- /
+
+Features:
+- loads all records from /api/videos
+- filters only entries where mimeType starts with "video/"
+- grid view of cards
+- shows title, view count, mime type
+- opens detail screen on tap/click
+- skeleton loading placeholders
+
+No thumbnails:
+- current web app uses a generic play-placeholder icon, not generated thumbnails
+
+10.5 GIF gallery screen
+
+Route:
+- /gifs
+
+Features:
+- loads all records from /api/videos
+- filters where mimeType === "image/gif"
+- downloads each GIF stream as Blob
+- displays animated GIF preview
+- tapping item opens /video/:id
+
+10.6 Video detail screen
+
+Route:
+- /video/:id
+
+Features:
+- fetch video record by id
+- if mimeType is image/gif, render as image
+- otherwise fetch protected video stream as Blob and render in HTML video tag
+- on play, call POST /api/videos/:id/view
+- display description
+- list comments
+- add comment form
+
+APIs used:
+- GET /api/videos/:id
+- GET /api/videos/:id/stream
+- POST /api/videos/:id/view
+- GET /api/videos/:id/comments
+- POST /api/videos/:id/comments
+
+10.7 Photo gallery screen
+
+Route:
+- /photos
+
+Features for all authenticated users:
+- fetches album list
+- fetches photo list
+- album chips for filtering
+- lazy-ish authenticated blob loading for images
+- grid display
+- full-screen overlay viewer for selected photo
+
+Extra features for admin users:
+- selection mode for multiple photos
+- select multiple photos
+- choose target album
+- assign selected photos to album using PATCH endpoint
+
+APIs used:
+- GET /api/photos/albums
+- GET /api/photos
+- GET /api/photos?albumId=:id
+- GET /api/photos/:id/stream
+- PATCH /api/admin/photos/assign-album
+
+10.8 External server media screen
+
+Route:
+- /server-media
+
+Features:
+- list external media files
+- filter by All / Video / Image / Audio
+- select one item to open built-in player/viewer
+- for player/viewer, constructs stream URL and appends token as query parameter
+- shows mime type, file size, modified date
+
+APIs used:
+- GET /api/server-media
+- GET /api/server-media/stream/:id?token=<jwt>
+
+10.9 Admin screen
+
+Route:
+- /admin
+
+Client-side behavior:
+- if logged in but not admin, shows warning and redirects to home after 1 second
+
+Features:
+- list users
+- change selected user's password
+- upload video/GIF
+- create photo album
+- upload photo directly into a chosen album
+- list all videos and delete one
+- list all photos and delete one
+
+APIs used:
+- GET /api/admin/users
+- POST /api/admin/users/:id/password
+- GET /api/admin/albums
+- POST /api/admin/albums
+- POST /api/admin/videos
+- POST /api/admin/albums/:id/photos
+- GET /api/videos
+- DELETE /api/admin/videos/:id
+- GET /api/photos
+- DELETE /api/admin/photos/:id
+
+
+11. Android Mobile App Implementation Contract
+
+Recommended screens for parity with current system:
+- Login
+- Video list
+- GIF list
+- Video/GIF detail
+- Photo gallery
+- External server media browser
+- Admin dashboard, only visible for ADMIN users
+
+11.1 Authentication requirements
+
+The Android app should:
+- call /api/auth/login
+- store token securely
+- attach Authorization: Bearer <token> to all protected API calls
+- decode token expiration or simply react to 401
+- force re-login after expiration
+
+There is no backend support for:
+- refresh token
+- forgot password
+- self-service password change
+- logout endpoint
+
+11.2 Video playback requirements
+
+For standard videos:
+- use authenticated streaming from GET /api/videos/:id/stream
+- support HTTP range playback through the media player
+
+For GIFs:
+- either render as image from downloaded stream bytes
+- or reuse the same detail endpoint but branch by mimeType
+
+For views:
+- increment by calling POST /api/videos/:id/view when playback starts
+
+11.3 Photo display requirements
+
+For gallery:
+- fetch photo metadata from GET /api/photos
+- fetch image bytes from GET /api/photos/:id/stream
+- optional album filtering from GET /api/photos/albums
+
+11.4 External media requirements
+
+For external server library:
+- treat "id" from GET /api/server-media as opaque
+- request /api/server-media/stream/:id with Bearer token
+- query-token workaround is only necessary for browser element URLs; Android can use headers
+
+11.5 Admin feature requirements
+
+Show admin features only if JWT/user role is ADMIN:
+- manage user passwords
+- create albums
+- upload videos
+- upload photos to album
+- assign photos to album
+- delete videos
+- delete photos
+
+11.6 File upload requirements
+
+Uploads use multipart/form-data.
+
+Video upload fields:
+- title
+- description optional
+- file
+
+Photo upload fields:
+- file
+- title optional
+- albumId optional on generic upload endpoint
+
+
+12. Known Behavioral Notes and Edge Cases
+
+12.1 Videos and GIFs share the same table and list endpoint
+
+Implication:
+- clients must separate them by mimeType
+
+12.2 Admin route exists in router config but not in guard role check
+
+Implication:
+- a normal user can navigate to /admin in web client, but server blocks admin API calls and the page redirects away
+- Android app should hide admin UI unless role is ADMIN
+
+12.3 Seed file inconsistency
+
+Current seed code:
+- hashes password "APPluc79%"
+- creates/upserts admin user "admin"
+- console log still says "Admin listo: admin / admin123"
+
+Implication:
+- the printed seed message is stale
+- do not rely on "admin123" unless verified separately in deployment
+
+12.4 Registration exists only on backend
+
+Implication:
+- mobile project must decide whether registration is part of product scope
+
+12.5 Streaming auth pattern differs by client type
+
+Web client:
+- sometimes uses Blob fetches with Authorization header
+- for direct HTML element URLs in server-media, appends token query param
+
+Android app:
+- should prefer Authorization header in HTTP client/player
+
+12.6 No pagination
+
+All list endpoints currently return full collections:
+- videos
+- photos
+- albums
+- users
+- server media
+
+Implication:
+- Android app may need client-side pagination/lazy rendering for large libraries
+
+
+13. Example Request Summary
+
+Login:
+POST /api/auth/login
+Content-Type: application/json
+{
+  "username": "admin",
+  "password": "secret"
+}
+
+List videos:
+GET /api/videos
+Authorization: Bearer <token>
+
+Stream video:
+GET /api/videos/5/stream
+Authorization: Bearer <token>
+
+Create comment:
+POST /api/videos/5/comments
+Authorization: Bearer <token>
+Content-Type: application/json
+{
+  "content": "Great clip"
+}
+
+Filter photos by album:
+GET /api/photos?albumId=2
+Authorization: Bearer <token>
+
+Assign photos to album:
+PATCH /api/admin/photos/assign-album
+Authorization: Bearer <token>
+Content-Type: application/json
+{
+  "photoIds": [4, 8, 9],
+  "albumId": 2
+}
+
+Upload video:
+POST /api/admin/videos
+Authorization: Bearer <token>
+Content-Type: multipart/form-data
+Fields:
+- title=My Video
+- description=Optional
+- file=<binary>
+
+
+14. Suggested Deliverables for the Android Project
+
+If building a separate Android Studio project, the minimum useful modules/features are:
+- auth module
+- API client with JWT interceptor
+- media models matching backend JSON
+- video list + detail
+- GIF list + detail
+- photo album/gallery + full-screen viewer
+- external media browser/player
+- admin-only management screens
+
+Recommended shared DTOs:
+- LoginRequest
+- LoginResponse
+- SessionUser
+- VideoDto
+- CommentDto
+- PhotoDto
+- AlbumDto
+- ServerMediaItemDto
+- AdminUserDto
+
+
+15. Source-of-Truth Files Used
+
+Server:
+- server/index.ts
+- server/middleware/auth.ts
+- server/routes/auth.ts
+- server/routes/videos.ts
+- server/routes/photos.ts
+- server/routes/admin.ts
+- server/routes/serverMedia.ts
+- server/prisma/schema.prisma
+- server/prisma/seed.ts
+
+Client:
+- client/src/app.routes.ts
+- client/src/services/auth.service.ts
+- client/src/services/api.service.ts
+- client/src/interceptors/token.interceptor.ts
+- client/src/guards/auth.guard.ts
+- client/src/app/app.component.ts
+- client/src/pages/login/login.component.ts
+- client/src/pages/gallery/gallery.component.ts
+- client/src/pages/gif-gallery/gif-gallery.component.ts
+- client/src/pages/video-detail/video-detail.component.ts
+- client/src/pages/photo-gallery/photo-gallery.component.ts
+- client/src/pages/server-media/server-media.component.ts
+- client/src/pages/admin/admin.component.ts
+
+End of specification.
