@@ -36,8 +36,8 @@ services:
     volumes:
       - media:/media
       - ${SERVER_MEDIA_HOST_PATH}:/external-media:ro
-    expose:
-      - "3000"
+    ports:
+      - "3000:3000"
     restart: unless-stopped
 
   client:
