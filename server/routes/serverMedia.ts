@@ -14,6 +14,13 @@ interface MediaItem {
   modifiedAt: string;
 }
 
+interface MediaGallery {
+  name: string;
+  relativePath: string;
+  galleries: MediaGallery[];
+  items: MediaItem[];
+}
+
 const SUPPORTED_EXTENSIONS = new Map<string, { type: MediaKind; mime: string }>([
   ['.mp4', { type: 'video', mime: 'video/mp4' }],
   ['.mkv', { type: 'video', mime: 'video/x-matroska' }],
@@ -59,50 +66,81 @@ function fromBase64Url(value: string): string {
   return Buffer.from(padded, 'base64').toString('utf8');
 }
 
-function listMediaFiles(): MediaItem[] {
-  if (!fs.existsSync(ROOT_DIR)) return [];
+function toRelativePath(root: string, target: string): string {
+  return path.relative(root, target).split(path.sep).join('/');
+}
 
-  const collected: MediaItem[] = [];
-  const root = path.resolve(ROOT_DIR);
+function rootGalleryName(root: string): string {
+  return path.basename(root) || root;
+}
 
-  const walk = (currentDir: string) => {
-    const entries = fs.readdirSync(currentDir, { withFileTypes: true });
+function buildMediaGallery(currentDir: string, root: string): MediaGallery | null {
+  const entries = fs.readdirSync(currentDir, { withFileTypes: true });
+  const galleries: MediaGallery[] = [];
+  const items: MediaItem[] = [];
 
-    for (const entry of entries) {
-      if (entry.name.startsWith('.')) continue; // skip hidden files/directories
+  for (const entry of entries) {
+    if (entry.name.startsWith('.')) continue; // skip hidden files/directories
 
-      const absolute = path.join(currentDir, entry.name);
-      if (entry.isDirectory()) {
-        walk(absolute);
-        continue;
-      }
-
-      if (!entry.isFile()) continue;
-
-      const ext = path.extname(entry.name).toLowerCase();
-      const meta = SUPPORTED_EXTENSIONS.get(ext);
-      if (!meta) continue;
-
-      const stat = fs.statSync(absolute);
-      const relativePath = path.relative(root, absolute);
-
-      collected.push({
-        id: toBase64Url(relativePath),
-        name: entry.name,
-        relativePath,
-        mimeType: meta.mime,
-        type: meta.type,
-        size: stat.size,
-        modifiedAt: stat.mtime.toISOString()
-      });
+    const absolute = path.join(currentDir, entry.name);
+    if (entry.isDirectory()) {
+      const gallery = buildMediaGallery(absolute, root);
+      if (gallery) galleries.push(gallery);
+      continue;
     }
+
+    if (!entry.isFile()) continue;
+
+    const ext = path.extname(entry.name).toLowerCase();
+    const meta = SUPPORTED_EXTENSIONS.get(ext);
+    if (!meta) continue;
+
+    const stat = fs.statSync(absolute);
+    const relativePath = toRelativePath(root, absolute);
+
+    items.push({
+      id: toBase64Url(relativePath),
+      name: entry.name,
+      relativePath,
+      mimeType: meta.mime,
+      type: meta.type,
+      size: stat.size,
+      modifiedAt: stat.mtime.toISOString()
+    });
+  }
+
+  galleries.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
+  items.sort((a, b) => new Date(b.modifiedAt).getTime() - new Date(a.modifiedAt).getTime());
+
+  if (currentDir !== root && galleries.length === 0 && items.length === 0) {
+    return null;
+  }
+
+  return {
+    name: currentDir === root ? rootGalleryName(root) : path.basename(currentDir),
+    relativePath: currentDir === root ? '' : toRelativePath(root, currentDir),
+    galleries,
+    items
   };
+}
 
-  walk(root);
+function listMediaTree(): MediaGallery {
+  const root = path.resolve(ROOT_DIR);
+  if (!fs.existsSync(root)) {
+    return {
+      name: rootGalleryName(root),
+      relativePath: '',
+      galleries: [],
+      items: []
+    };
+  }
 
-  collected.sort((a, b) => new Date(b.modifiedAt).getTime() - new Date(a.modifiedAt).getTime());
-
-  return collected;
+  return buildMediaGallery(root, root) ?? {
+    name: rootGalleryName(root),
+    relativePath: '',
+    galleries: [],
+    items: []
+  };
 }
 
 function ensureInsideRoot(relativePath: string): string | null {
@@ -115,7 +153,7 @@ function ensureInsideRoot(relativePath: string): string | null {
 
 router.get('/', (_req, res) => {
   try {
-    const media = listMediaFiles();
+    const media = listMediaTree();
     res.json(media);
   } catch (err) {
     console.error('Failed to read media directory', err);

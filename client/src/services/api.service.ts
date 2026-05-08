@@ -41,6 +41,13 @@ export interface ServerMediaItem {
   modifiedAt: string;
 }
 
+export interface ServerMediaGallery {
+  name: string;
+  relativePath: string;
+  galleries: ServerMediaGallery[];
+  items: ServerMediaItem[];
+}
+
 export interface AdminUser {
   id: number;
   username: string;
@@ -138,8 +145,8 @@ export class ApiService {
   }
 
   // Biblioteca de archivos en el servidor
-  listServerMedia(): Observable<ServerMediaItem[]> {
-    return this.http.get<ServerMediaItem[]>(`${environment.apiUrl}/server-media`);
+  listServerMedia(): Observable<ServerMediaGallery> {
+    return this.http.get<ServerMediaGallery>(`${environment.apiUrl}/server-media`);
   }
 
   serverMediaStreamUrl(id: string): string {
