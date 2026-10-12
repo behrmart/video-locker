@@ -1,5 +1,5 @@
 FROM node:20-alpine
-RUN apk add --no-cache bash openssl
+RUN apk add --no-cache bash openssl ffmpeg
 WORKDIR /app
 
 # deps primero para cache correcto

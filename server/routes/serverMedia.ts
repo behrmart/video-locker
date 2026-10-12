@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import * as fs from 'fs';
 import * as path from 'path';
+import { getVideoDuration } from '../services/media-duration';
 
 type MediaKind = 'video' | 'image' | 'audio';
 
@@ -158,6 +159,27 @@ router.get('/', (_req, res) => {
   } catch (err) {
     console.error('Failed to read media directory', err);
     res.status(500).json({ error: 'Unable to read media directory' });
+  }
+});
+
+router.get('/metadata/:id', async (req, res) => {
+  try {
+    const absolute = ensureInsideRoot(fromBase64Url(req.params.id));
+    if (!absolute) return res.status(400).json({ error: 'Invalid path' });
+    // Resolve symlinks too, so metadata probing cannot leave the media root.
+    const realRoot = await fs.promises.realpath(ROOT_DIR);
+    const realFile = await fs.promises.realpath(absolute);
+    if (!realFile.startsWith(realRoot + path.sep)) return res.status(400).json({ error: 'Invalid path' });
+    const stat = await fs.promises.stat(realFile);
+    const meta = SUPPORTED_EXTENSIONS.get(path.extname(realFile).toLowerCase());
+    if (!stat.isFile() || meta?.type !== 'video') return res.status(404).json({ error: 'Video not found' });
+    const durationSeconds = await getVideoDuration(realFile, stat.size, stat.mtimeMs);
+    return res.json({ durationSeconds });
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code === 'ENOENT' || code === 'ENOTDIR') return res.status(404).json({ error: 'File not found' });
+    console.error('Failed to read video metadata', error);
+    return res.status(500).json({ error: 'Unable to read video metadata' });
   }
 });
 

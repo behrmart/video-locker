@@ -149,6 +149,12 @@ export class ApiService {
     return this.http.get<ServerMediaGallery>(`${environment.apiUrl}/server-media`);
   }
 
+  serverMediaMetadata(id: string): Observable<{ durationSeconds: number | null }> {
+    return this.http.get<{ durationSeconds: number | null }>(
+      `${environment.apiUrl}/server-media/metadata/${id}`
+    );
+  }
+
   serverMediaStreamUrl(id: string): string {
     return `${environment.apiUrl}/server-media/stream/${id}`;
   }

@@ -1,5 +1,7 @@
-import { Component, HostListener, OnInit } from '@angular/core';
+import { Component, HostListener, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { Subscription, from, of } from 'rxjs';
+import { catchError, mergeMap } from 'rxjs/operators';
 import { ApiService, ServerMediaGallery, ServerMediaItem } from '../../services/api.service';
 import { AuthService } from '../../services/auth.service';
 
@@ -110,27 +112,33 @@ interface GalleryCard {
       <span>{{ visibleItems.length }}</span>
     </div>
 
-    <div class="grid">
+    <div class="grid" [class.video-grid]="filter === 'video'">
       <button
         type="button"
         class="card"
         *ngFor="let media of visibleItems; trackBy: trackById"
         [class.card-image]="media.type === 'image'"
+        [class.card-video]="media.type === 'video'"
         [class.card-active]="active?.id === media.id"
         (click)="select(media)">
         <div class="thumb" *ngIf="media.type === 'image'; else mediaIcon">
           <img [src]="mediaUrl(media)" [alt]="media.name" loading="lazy">
         </div>
         <ng-template #mediaIcon>
-          <div class="thumb thumb-fallback" [attr.data-kind]="media.type">
-            <span class="kind">{{ media.type === 'video' ? 'Video' : 'Audio' }}</span>
-            <span class="glyph" aria-hidden="true">{{ media.type === 'video' ? '▶' : '♫' }}</span>
+          <div *ngIf="media.type === 'audio'" class="thumb thumb-fallback" data-kind="audio">
+            <span class="kind">Audio</span>
+            <span class="glyph" aria-hidden="true">♫</span>
           </div>
         </ng-template>
 
         <div class="copy">
           <div class="name" title="{{ media.relativePath }}">{{ media.name }}</div>
-          <div class="meta">{{ media.mimeType }} · {{ media.size | number }} Byte</div>
+          <div class="meta" *ngIf="media.type === 'video'; else fileMeta">
+            {{ media.mimeType }} · Dauer: {{ durationLabel(media) }}
+          </div>
+          <ng-template #fileMeta>
+            <div class="meta">{{ media.mimeType }} · {{ media.size | number }} Byte</div>
+          </ng-template>
         </div>
       </button>
     </div>
@@ -393,6 +401,15 @@ interface GalleryCard {
       overflow:hidden;
       padding:0;
     }
+    .grid { align-items: start; }
+    .grid.video-grid {
+      gap:8px;
+      grid-template-columns: repeat(auto-fill, minmax(min(100%, 200px), 1fr));
+    }
+    .card-video { width:100%; min-width:0; border-radius:8px; align-self:start; }
+    .card-video .copy { padding:10px; gap:6px; }
+    .card-video .name { overflow-wrap:anywhere; }
+    .card-video .meta { white-space:normal; overflow-wrap:anywhere; }
     .card:hover {
       transform: translateY(-1px);
       box-shadow: 0 4px 12px rgba(0,0,0,.1);
@@ -537,7 +554,7 @@ interface GalleryCard {
     .overlay-close:hover { background:rgba(0,0,0,.78); }
   `]
 })
-export class ServerMediaComponent implements OnInit {
+export class ServerMediaComponent implements OnInit, OnDestroy {
   rootGallery: ServerMediaGallery | null = null;
   galleryPath: ServerMediaGallery[] = [];
   visibleGalleries: GalleryCard[] = [];
@@ -546,6 +563,10 @@ export class ServerMediaComponent implements OnInit {
   filter: FilterOption = 'all';
   active: ServerMediaItem | null = null;
   activeUrl: string | null = null;
+
+  private durations = new Map<string, number | null>();
+  private metadataSubscription?: Subscription;
+  private readonly nameOrder = new Intl.Collator('de', { numeric: true, sensitivity: 'base' });
 
   private matchCountByPath = new Map<string, number>();
   private visibleGalleryCountByPath = new Map<string, number>();
@@ -606,6 +627,32 @@ export class ServerMediaComponent implements OnInit {
         this.loading = false;
       }
     });
+  }
+
+  ngOnDestroy(): void {
+    this.metadataSubscription?.unsubscribe();
+  }
+
+  durationLabel(item: ServerMediaItem): string {
+    const seconds = this.durations.get(item.id);
+    if (seconds === undefined) return 'Wird geladen…';
+    if (seconds === null || !Number.isFinite(seconds) || seconds < 0) return 'Unbekannt';
+    const total = Math.floor(seconds);
+    const hours = Math.floor(total / 3600);
+    const minutes = Math.floor((total % 3600) / 60);
+    const rest = String(total % 60).padStart(2, '0');
+    return hours ? `${hours}:${String(minutes).padStart(2, '0')}:${rest}` : `${minutes}:${rest}`;
+  }
+
+  private loadVisibleDurations(): void {
+    this.metadataSubscription?.unsubscribe();
+    const videos = this.visibleItems.filter(item => item.type === 'video' && !this.durations.has(item.id));
+    this.metadataSubscription = from(videos).pipe(
+      mergeMap(item => this.api.serverMediaMetadata(item.id).pipe(
+        catchError(() => of({ durationSeconds: null })),
+        mergeMap(metadata => of({ id: item.id, seconds: metadata.durationSeconds }))
+      ), 3)
+    ).subscribe(({ id, seconds }) => this.durations.set(id, seconds));
   }
 
   setFilter(filter: FilterOption) {
@@ -689,6 +736,7 @@ export class ServerMediaComponent implements OnInit {
   }
 
   private refreshCurrentGallery() {
+    this.metadataSubscription?.unsubscribe();
     const gallery = this.currentGallery;
     if (!gallery) {
       this.visibleGalleries = [];
@@ -698,13 +746,16 @@ export class ServerMediaComponent implements OnInit {
 
     this.visibleGalleries = gallery.galleries
       .filter(child => this.getMatchCount(child) > 0)
+      .sort((a, b) => this.nameOrder.compare(a.name, b.name))
       .map(child => ({
         gallery: child,
         mediaCount: this.getMatchCount(child),
         subgalleryCount: this.getVisibleSubgalleryCount(child)
       }));
 
-    this.visibleItems = gallery.items.filter(item => this.matchesFilter(item));
+    this.visibleItems = gallery.items.filter(item => this.matchesFilter(item))
+      .sort((a, b) => this.nameOrder.compare(a.name, b.name));
+    this.loadVisibleDurations();
   }
 
   private computeMatchState(gallery: ServerMediaGallery): number {
