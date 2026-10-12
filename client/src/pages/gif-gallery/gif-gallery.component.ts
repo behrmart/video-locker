@@ -7,7 +7,7 @@ import { ApiService, Video } from '../../services/api.service';
   selector: 'app-gif-gallery',
   imports: [CommonModule],
   template: `
-  <h2 style="margin-bottom:12px">Galería de GIFs</h2>
+  <h2 style="margin-bottom:12px">GIF-Galerie</h2>
 
   <div class="grid">
     <div class="tile" *ngFor="let v of gifs; trackBy: trackById" (click)="goTo(v.id)">
@@ -16,13 +16,13 @@ import { ApiService, Video } from '../../services/api.service';
       </div>
       <div class="meta">
         <div class="title" title="{{v.title}}">{{ v.title }}</div>
-        <div class="muted">{{ v.views }} vistas</div>
+        <div class="muted">{{ v.views }} Aufrufe</div>
       </div>
     </div>
   </div>
 
   <ng-template #loadingTpl>
-    <div class="loading">Cargando…</div>
+    <div class="loading">Wird geladen…</div>
   </ng-template>
   `,
   styles: [`

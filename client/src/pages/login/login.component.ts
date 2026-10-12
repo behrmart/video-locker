@@ -1,3 +1,4 @@
+import { germanErrorMessage } from '../../services/error-message';
 // client/src/pages/login/login.component.ts
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
@@ -12,21 +13,21 @@ import { AuthService } from '../../services/auth.service';
   template: `
   <div class="wrap">
     <div class="card">
-      <h2>Iniciar sesión</h2>
+      <h2>Anmelden</h2>
 
       <form (ngSubmit)="onSubmit()" #f="ngForm">
         <label>
-          <span>Usuario</span>
+          <span>Benutzername</span>
           <input
             name="username"
             [(ngModel)]="username"
             required
             autocomplete="username"
-            placeholder="Tu usuario" />
+            placeholder="Dein Benutzername" />
         </label>
 
         <label>
-          <span>Contraseña</span>
+          <span>Passwort</span>
           <input
             name="password"
             [(ngModel)]="password"
@@ -37,7 +38,7 @@ import { AuthService } from '../../services/auth.service';
         </label>
 
         <button [disabled]="loading || f.invalid">
-          {{ loading ? 'Entrando…' : 'Entrar' }}
+          {{ loading ? 'Anmeldung läuft…' : 'Anmelden' }}
         </button>
 
         <div class="msg error" *ngIf="error">{{ error }}</div>
@@ -91,7 +92,7 @@ export class LoginComponent implements OnInit {
       },
       error: (e) => {
         console.error('Login error', e);
-        this.error = e?.error?.error || 'Usuario o contraseña inválidos.';
+        this.error = germanErrorMessage(e?.error?.error, 'Die Anmeldung ist fehlgeschlagen. Bitte versuche es erneut.');
         this.loading = false;
       }
     });

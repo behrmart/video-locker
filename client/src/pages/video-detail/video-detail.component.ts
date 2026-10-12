@@ -21,16 +21,16 @@ import { ApiService } from '../../services/api.service';
       <video [src]="src" width="100%" height="auto" controls (play)="onPlay()"></video>
     </ng-container>
     <ng-template #loadingTpl>
-      <div style="opacity:.7">Cargando video…</div>
+      <div style="opacity:.7">Video wird geladen…</div>
     </ng-template>
   </ng-container>
 
   <p style="margin:8px 0 16px">{{ video.description }}</p>
 
-  <h3>Comentarios</h3>
+  <h3>Kommentare</h3>
   <form (ngSubmit)="addComment()">
-    <input [(ngModel)]="comment" name="comment" placeholder="Escribe un comentario..." required>
-    <button>Enviar</button>
+    <input [(ngModel)]="comment" name="comment" placeholder="Schreibe einen Kommentar..." required>
+    <button>Senden</button>
   </form>
 
   <ul>

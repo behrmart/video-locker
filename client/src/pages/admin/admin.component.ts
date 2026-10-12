@@ -1,3 +1,4 @@
+import { germanErrorMessage } from '../../services/error-message';
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ApiService, Video, Photo, AdminUser, Album } from '../../services/api.service';
@@ -9,65 +10,65 @@ import { AuthService } from '../../services/auth.service';
   selector: 'app-admin',
   imports: [CommonModule],
   template: `
-  <h2>Panel de Administración</h2>
+  <h2>Verwaltung</h2>
 
   <div class="note" *ngIf="!isAdmin">
-    Debes ser <b>ADMIN</b> para usar esta página. Redirigiendo…
+    Du benötigst <b>Administratorrechte</b>, um diese Seite zu nutzen. Weiterleitung…
   </div>
 
   <section class="card">
-    <h3>Cambiar contraseña de usuario</h3>
+    <h3>Benutzerpasswort ändern</h3>
     <form (submit)="onChangePassword($event)">
       <select name="userId" required>
-        <option value="" disabled selected>Selecciona un usuario</option>
+        <option value="" disabled selected>Wähle einen Benutzer</option>
         <option *ngFor="let u of users; trackBy: trackByUserId" [value]="u.id">
-          {{ u.username }} ({{ u.role }})
+          {{ u.username }} ({{ u.role === 'ADMIN' ? 'Administrator' : 'Benutzer' }})
         </option>
       </select>
-      <input type="password" name="password" placeholder="Nueva contraseña (mínimo 8 caracteres)" minlength="8" required>
-      <input type="password" name="confirmPassword" placeholder="Confirmar contraseña" minlength="8" required>
-      <button>Cambiar contraseña</button>
+      <input type="password" name="password" placeholder="Neues Passwort (mindestens 8 Zeichen)" minlength="8" required>
+      <input type="password" name="confirmPassword" placeholder="Passwort bestätigen" minlength="8" required>
+      <button>Passwort ändern</button>
     </form>
     <div *ngIf="userListMsg" class="msg">{{ userListMsg }}</div>
     <div *ngIf="passwordMsg" class="msg">{{ passwordMsg }}</div>
   </section>
 
   <section class="card">
-    <h3>Subir video / GIF</h3>
+    <h3>Video / GIF hochladen</h3>
     <form (submit)="onUpload($event)">
-      <input type="text" name="title" placeholder="Título" required>
-      <textarea name="description" placeholder="Descripción (opcional)"></textarea>
+      <input type="text" name="title" placeholder="Titel" required>
+      <textarea name="description" placeholder="Beschreibung (optional)"></textarea>
       <input type="file" name="file" accept="video/*,image/gif" required>
-      <button>Subir</button>
+      <button>Hochladen</button>
     </form>
     <div *ngIf="uploadMsg" class="msg">{{ uploadMsg }}</div>
   </section>
 
   <section class="card">
-    <h3>Álbumes de fotos</h3>
+    <h3>Fotoalben</h3>
 
     <form (submit)="onCreateAlbum($event)">
-      <input type="text" name="name" placeholder="Nombre del álbum (persona/lugar)" required>
-      <input type="text" name="description" placeholder="Descripción (opcional)">
-      <button>Crear álbum</button>
+      <input type="text" name="name" placeholder="Albumname (Person/Ort)" required>
+      <input type="text" name="description" placeholder="Beschreibung (optional)">
+      <button>Album erstellen</button>
     </form>
     <div *ngIf="albumMsg" class="msg">{{ albumMsg }}</div>
 
     <div class="albums-grid" *ngIf="albums.length; else emptyAlbums">
       <article class="album-item" *ngFor="let a of albums; trackBy: trackByAlbumId">
         <div class="album-title">{{ a.name }}</div>
-        <div class="album-meta">{{ a.photoCount }} fotos</div>
+        <div class="album-meta">{{ a.photoCount }} Fotos</div>
         <div class="album-meta" *ngIf="a.description">{{ a.description }}</div>
 
         <form (submit)="onUploadToAlbum($event, a.id)">
-          <input type="text" name="title" placeholder="Título de la foto (opcional)">
+          <input type="text" name="title" placeholder="Fototitel (optional)">
           <input type="file" name="file" accept="image/*" required>
-          <button>Subir a este álbum</button>
+          <button>In dieses Album hochladen</button>
         </form>
       </article>
     </div>
     <ng-template #emptyAlbums>
-      <div class="msg muted">No hay álbumes. Crea uno para clasificar fotos por persona o lugar.</div>
+      <div class="msg muted">Es gibt noch keine Alben. Erstelle ein Album, um Fotos nach Person oder Ort zu ordnen.</div>
     </ng-template>
     <div *ngIf="photoUploadMsg" class="msg">{{ photoUploadMsg }}</div>
   </section>
@@ -78,10 +79,10 @@ import { AuthService } from '../../services/auth.service';
 
     <div class="table">
       <div class="thead">
-        <div>Título</div>
-        <div>Tipo</div>
-        <div>Vistas</div>
-        <div>Fecha</div>
+        <div>Titel</div>
+        <div>Typ</div>
+        <div>Aufrufe</div>
+        <div>Datum</div>
         <div></div>
       </div>
 
@@ -89,9 +90,9 @@ import { AuthService } from '../../services/auth.service';
         <div class="title" [title]="v.title">{{ v.title }}</div>
         <div>{{ v.mimeType }}</div>
         <div>{{ v.views }}</div>
-        <div>{{ v.createdAt | date:'yyyy-MM-dd HH:mm' }}</div>
+        <div>{{ v.createdAt | date:'dd.MM.yyyy HH:mm' }}</div>
         <div class="actions">
-          <button class="danger" (click)="onDelete(v)">Borrar</button>
+          <button class="danger" (click)="onDelete(v)">Löschen</button>
         </div>
       </div>
     </div>
@@ -106,15 +107,15 @@ import { AuthService } from '../../services/auth.service';
       <div class="photo-item" *ngFor="let p of photos; trackBy: trackByPhotoId">
         <div class="title" [title]="p.title">{{ p.title }}</div>
         <div class="meta">
-          {{ p.album?.name || 'Sin álbum' }} · {{ p.mimeType }} · {{ p.createdAt | date:'yyyy-MM-dd HH:mm' }}
+          {{ p.album?.name || 'Ohne Album' }} · {{ p.mimeType }} · {{ p.createdAt | date:'dd.MM.yyyy HH:mm' }}
         </div>
         <div class="actions">
-          <button class="danger" (click)="onDeletePhoto(p)">Borrar</button>
+          <button class="danger" (click)="onDeletePhoto(p)">Löschen</button>
         </div>
       </div>
     </div>
     <ng-template #emptyPhotos>
-      <div class="msg muted">No hay fotos cargadas.</div>
+      <div class="msg muted">Es wurden noch keine Fotos hochgeladen.</div>
     </ng-template>
 
     <div *ngIf="photoListMsg" class="msg">{{ photoListMsg }}</div>
@@ -174,7 +175,7 @@ ngOnInit(): void {
   this.isAdmin = this.computeIsAdmin();
 
   if (!this.isAdmin) {
-    this.listMsg = 'Debes ser ADMIN para usar esta página. Redirigiendo…';
+    this.listMsg = 'Du benötigst Administratorrechte, um diese Seite zu nutzen. Weiterleitung…';
     setTimeout(() => this.router.navigateByUrl('/'), 1000);
     return;
   }
@@ -209,30 +210,28 @@ private computeIsAdmin(): boolean {
     const confirmPassword = (fd.get('confirmPassword') || '').toString();
 
     if (!userId || Number.isNaN(userId)) {
-      this.passwordMsg = 'Selecciona un usuario.';
+      this.passwordMsg = 'Wähle einen Benutzer.';
       return;
     }
     if (password.length < 8) {
-      this.passwordMsg = 'La contraseña debe tener al menos 8 caracteres.';
+      this.passwordMsg = 'Das Passwort muss mindestens 8 Zeichen lang sein.';
       return;
     }
     if (password !== confirmPassword) {
-      this.passwordMsg = 'La confirmación no coincide.';
+      this.passwordMsg = 'Die Passwörter stimmen nicht überein.';
       return;
     }
 
-    this.passwordMsg = 'Actualizando contraseña…';
+    this.passwordMsg = 'Passwort wird aktualisiert…';
     this.api.adminChangeUserPassword(userId, password).subscribe({
       next: () => {
-        this.passwordMsg = 'Contraseña actualizada ✅';
+        this.passwordMsg = 'Passwort aktualisiert ✅';
         form.reset();
       },
       error: (e) => {
         console.error(e);
         const backendMessage = e?.error?.details || e?.error?.error;
-        this.passwordMsg = backendMessage
-          ? `No se pudo actualizar: ${backendMessage}`
-          : 'No se pudo actualizar la contraseña.';
+        this.passwordMsg = germanErrorMessage(backendMessage, 'Das Passwort konnte nicht aktualisiert werden.');
       }
     });
   }
@@ -243,24 +242,24 @@ private computeIsAdmin(): boolean {
     const fd = new FormData(form);
     const title = (fd.get('title') || '').toString().trim();
     const file = fd.get('file') as File | null;
-    if (!title || !file) { this.uploadMsg = 'Falta título o archivo.'; return; }
-    this.uploadMsg = 'Subiendo…';
+    if (!title || !file) { this.uploadMsg = 'Titel oder Datei fehlt.'; return; }
+    this.uploadMsg = 'Wird hochgeladen…';
     this.api.uploadVideo(fd).subscribe({
-      next: () => { this.uploadMsg = 'Subido ✅'; form.reset(); this.fetchVideos(); },
-      error: e => { console.error(e); this.uploadMsg = 'Error al subir.'; }
+      next: () => { this.uploadMsg = 'Hochgeladen ✅'; form.reset(); this.fetchVideos(); },
+      error: e => { console.error(e); this.uploadMsg = 'Fehler beim Hochladen.'; }
     });
   }
 
   onDelete(v: Video) {
-    if (!confirm(`¿Borrar "${v.title}"? Esta acción es permanente.`)) return;
+    if (!confirm(`„${v.title}“ löschen? Diese Aktion kann nicht rückgängig gemacht werden.`)) return;
     this.api.deleteVideo(v.id).subscribe({
       next: () => {
         this.videos = this.videos.filter(x => x.id !== v.id);
-        this.listMsg = `Se borró "${v.title}" ✅`;
+        this.listMsg = `„${v.title}“ wurde gelöscht ✅`;
       },
       error: e => {
         console.error(e);
-        this.listMsg = 'No se pudo borrar (revisa permisos/servidor).';
+        this.listMsg = 'Löschen fehlgeschlagen (Berechtigungen/Server prüfen).';
       }
     });
   }
@@ -273,18 +272,18 @@ private computeIsAdmin(): boolean {
     const fd = new FormData(form);
     const name = (fd.get('name') || '').toString().trim();
     const description = (fd.get('description') || '').toString().trim();
-    if (!name) { this.albumMsg = 'El nombre del álbum es obligatorio.'; return; }
+    if (!name) { this.albumMsg = 'Ein Albumname ist erforderlich.'; return; }
 
-    this.albumMsg = 'Creando álbum…';
+    this.albumMsg = 'Album wird erstellt…';
     this.api.createAlbum(name, description || undefined).subscribe({
       next: () => {
-        this.albumMsg = 'Álbum creado ✅';
+        this.albumMsg = 'Album erstellt ✅';
         form.reset();
         this.fetchAlbums();
       },
       error: e => {
         console.error(e);
-        this.albumMsg = e?.error?.error ? `No se pudo crear: ${e.error.error}` : 'No se pudo crear el álbum.';
+        this.albumMsg = germanErrorMessage(e?.error?.error, 'Das Album konnte nicht erstellt werden.');
       }
     });
   }
@@ -294,33 +293,33 @@ private computeIsAdmin(): boolean {
     const form = ev.target as HTMLFormElement;
     const fd = new FormData(form);
     const file = fd.get('file') as File | null;
-    if (!file) { this.photoUploadMsg = 'Selecciona una foto para subir.'; return; }
+    if (!file) { this.photoUploadMsg = 'Wähle ein Foto zum Hochladen.'; return; }
 
-    this.photoUploadMsg = 'Subiendo foto al álbum…';
+    this.photoUploadMsg = 'Foto wird ins Album hochgeladen…';
     this.api.uploadPhotoToAlbum(albumId, fd).subscribe({
       next: () => {
-        this.photoUploadMsg = 'Foto subida ✅';
+        this.photoUploadMsg = 'Foto hochgeladen ✅';
         form.reset();
         this.fetchPhotos();
         this.fetchAlbums();
       },
       error: e => {
         console.error(e);
-        this.photoUploadMsg = e?.error?.error ? `No se pudo subir: ${e.error.error}` : 'Error al subir la foto.';
+        this.photoUploadMsg = germanErrorMessage(e?.error?.error, 'Fehler beim Hochladen des Fotos.');
       }
     });
   }
 
   onDeletePhoto(p: Photo) {
-    if (!confirm(`¿Borrar "${p.title}"? Esta acción es permanente.`)) return;
+    if (!confirm(`„${p.title}“ löschen? Diese Aktion kann nicht rückgängig gemacht werden.`)) return;
     this.api.deletePhoto(p.id).subscribe({
       next: () => {
         this.photos = this.photos.filter(x => x.id !== p.id);
-        this.photoListMsg = `Se borró "${p.title}" ✅`;
+        this.photoListMsg = `„${p.title}“ wurde gelöscht ✅`;
       },
       error: e => {
         console.error(e);
-        this.photoListMsg = 'No se pudo borrar la foto.';
+        this.photoListMsg = 'Das Foto konnte nicht gelöscht werden.';
       }
     });
   }
@@ -330,16 +329,16 @@ private computeIsAdmin(): boolean {
   trackByAlbumId(_i: number, a: Album) { return a.id; }
 
   private fetchUsers() {
-    this.userListMsg = 'Cargando usuarios…';
+    this.userListMsg = 'Benutzer werden geladen…';
     this.api.listUsers().subscribe({
       next: users => {
         this.users = users;
-        this.userListMsg = users.length ? '' : 'No hay usuarios registrados.';
+        this.userListMsg = users.length ? '' : 'Es sind keine Benutzer registriert.';
       },
       error: e => {
         console.error(e);
         this.users = [];
-        this.userListMsg = 'No se pudieron cargar los usuarios.';
+        this.userListMsg = 'Die Benutzer konnten nicht geladen werden.';
       }
     });
   }
@@ -350,24 +349,24 @@ private computeIsAdmin(): boolean {
       error: e => {
         console.error(e);
         this.albums = [];
-        this.albumMsg = 'No se pudieron cargar los álbumes.';
+        this.albumMsg = 'Die Alben konnten nicht geladen werden.';
       }
     });
   }
 
   private fetchVideos() {
-    this.listMsg = 'Cargando…';
+    this.listMsg = 'Wird geladen…';
     this.api.listVideos().subscribe({
       next: vs => { this.videos = vs; this.listMsg = ''; },
-      error: e => { console.error(e); this.listMsg = 'No se pudo cargar la lista.'; }
+      error: e => { console.error(e); this.listMsg = 'Die Liste konnte nicht geladen werden.'; }
     });
   }
 
   private fetchPhotos() {
-    this.photoListMsg = 'Cargando…';
+    this.photoListMsg = 'Wird geladen…';
     this.api.listPhotos().subscribe({
       next: ps => { this.photos = ps; this.photoListMsg = ''; },
-      error: e => { console.error(e); this.photoListMsg = 'No se pudo cargar la lista de fotos.'; }
+      error: e => { console.error(e); this.photoListMsg = 'Die Fotoliste konnte nicht geladen werden.'; }
     });
   }
 }

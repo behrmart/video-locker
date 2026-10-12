@@ -9,14 +9,14 @@ import { ApiService, Video } from '../../services/api.service';
   selector: 'app-gallery',
   imports: [CommonModule],
   template: `
-  <h2 style="margin-bottom:12px">Galería de Videos</h2>
+  <h2 style="margin-bottom:12px">Videogalerie</h2>
 
   <div *ngIf="loading" class="grid">
     <div class="tile skeleton" *ngFor="let i of skeletons"></div>
   </div>
 
   <div *ngIf="!loading && videos.length === 0" class="empty">
-    No hay videos todavía. Sube alguno desde <b>Admin</b>.
+    Es gibt noch keine Videos. Lade ein Video unter <b>Verwaltung</b> hoch.
   </div>
 
   <div *ngIf="!loading" class="grid">
@@ -32,7 +32,7 @@ import { ApiService, Video } from '../../services/api.service';
       </div>
       <div class="meta">
         <div class="title">{{ v.title }}</div>
-        <div class="muted">{{ v.views }} vistas · {{ v.mimeType }}</div>
+        <div class="muted">{{ v.views }} Aufrufe · {{ v.mimeType }}</div>
       </div>
     </div>
   </div>

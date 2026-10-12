@@ -1,3 +1,4 @@
+import { germanErrorMessage } from '../../services/error-message';
 import { Component, OnInit, OnDestroy, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ApiService, Photo, Album } from '../../services/api.service';
@@ -8,30 +9,30 @@ import { AuthService } from '../../services/auth.service';
   selector: 'app-photo-gallery',
   imports: [CommonModule],
   template: `
-  <h2 style="margin-bottom:12px">Galería de Fotos</h2>
+  <h2 style="margin-bottom:12px">Fotogalerie</h2>
 
   <section class="batch" *ngIf="isAdmin">
     <div class="batch-head">
       <button class="chip" (click)="toggleSelectionMode()">
-        {{ selectionMode ? 'Cancelar selección' : 'Seleccionar fotos' }}
+        {{ selectionMode ? 'Auswahl aufheben' : 'Fotos auswählen' }}
       </button>
-      <span *ngIf="selectionMode" class="batch-count">{{ selectedIds.size }} seleccionadas</span>
+      <span *ngIf="selectionMode" class="batch-count">{{ selectedIds.size }} ausgewählt</span>
     </div>
 
     <div class="batch-actions" *ngIf="selectionMode">
       <select [value]="targetAlbumId ?? ''" (change)="onTargetAlbumChange($event)">
-        <option value="" disabled>Álbum destino</option>
+        <option value="" disabled>Zielalbum</option>
         <option *ngFor="let album of albums; trackBy: trackByAlbumId" [value]="album.id">
           {{ album.name }}
         </option>
       </select>
-      <button class="chip primary" (click)="assignSelectedToAlbum()">Asignar al álbum</button>
+      <button class="chip primary" (click)="assignSelectedToAlbum()">Dem Album zuordnen</button>
     </div>
     <div class="batch-msg" *ngIf="batchMsg">{{ batchMsg }}</div>
   </section>
 
   <div class="albums" *ngIf="!loading && albums.length">
-    <button class="chip" [class.active]="selectedAlbumId === null" (click)="selectAlbum(null)">Todos</button>
+    <button class="chip" [class.active]="selectedAlbumId === null" (click)="selectAlbum(null)">Alle</button>
     <button
       class="chip"
       *ngFor="let album of albums; trackBy: trackByAlbumId"
@@ -46,7 +47,7 @@ import { AuthService } from '../../services/auth.service';
   </div>
 
   <div *ngIf="!loading && photos.length === 0" class="empty">
-    No hay fotos todavía. Sube algunas desde <b>Admin</b>.
+    Es gibt noch keine Fotos. Lade Fotos unter <b>Verwaltung</b> hoch.
   </div>
 
   <div *ngIf="!loading" class="grid">
@@ -61,7 +62,7 @@ import { AuthService } from '../../services/auth.service';
   </div>
 
   <ng-template #loadingTpl>
-    <div class="placeholder">Cargando…</div>
+    <div class="placeholder">Wird geladen…</div>
   </ng-template>
 
   <div class="overlay" *ngIf="selectedPhoto" (click)="close()">
@@ -337,19 +338,19 @@ export class PhotoGalleryComponent implements OnInit, OnDestroy {
 
   assignSelectedToAlbum() {
     if (!this.targetAlbumId) {
-      this.batchMsg = 'Selecciona un álbum destino.';
+      this.batchMsg = 'Wähle ein Zielalbum.';
       return;
     }
     const photoIds = Array.from(this.selectedIds);
     if (photoIds.length === 0) {
-      this.batchMsg = 'Selecciona al menos una foto.';
+      this.batchMsg = 'Wähle mindestens ein Foto.';
       return;
     }
 
-    this.batchMsg = 'Asignando fotos al álbum…';
+    this.batchMsg = 'Fotos werden dem Album zugeordnet…';
     this.api.assignPhotosToAlbum(photoIds, this.targetAlbumId).subscribe({
       next: (resp) => {
-        this.batchMsg = `Fotos actualizadas: ${resp.updated} ✅`;
+        this.batchMsg = `Fotos aktualisiert: ${resp.updated} ✅`;
         this.selectedIds.clear();
         this.loadPhotos();
         this.api.listPhotoAlbums().subscribe({
@@ -359,7 +360,7 @@ export class PhotoGalleryComponent implements OnInit, OnDestroy {
       },
       error: (e) => {
         console.error(e);
-        this.batchMsg = e?.error?.error ? `No se pudo asignar: ${e.error.error}` : 'No se pudo asignar.';
+        this.batchMsg = germanErrorMessage(e?.error?.error, 'Die Fotos konnten nicht zugeordnet werden.');
       }
     });
   }

@@ -16,14 +16,14 @@ import { AuthService } from '../services/auth.service';
       <a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">Videos</a>
       <a routerLink="/gifs" routerLinkActive="active">GIFs</a>
       <a routerLink="/photos" routerLinkActive="active">Fotos</a>
-      <a routerLink="/server-media" routerLinkActive="active">Servidor</a>
-      <a routerLink="/admin" routerLinkActive="active">Admin</a>
+      <a routerLink="/server-media" routerLinkActive="active">Server</a>
+      <a routerLink="/admin" routerLinkActive="active">Verwaltung</a>
 
       <ng-container *ngIf="auth.isLoggedIn(); else loginLink">
-        <button class="btn" (click)="logout()">Cerrar sesión</button>
+        <button class="btn" (click)="logout()">Abmelden</button>
       </ng-container>
       <ng-template #loginLink>
-        <a routerLink="/login" routerLinkActive="active">Login</a>
+        <a routerLink="/login" routerLinkActive="active">Anmelden</a>
       </ng-template>
     </nav>
   </header>

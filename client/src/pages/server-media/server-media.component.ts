@@ -16,12 +16,12 @@ interface GalleryCard {
   selector: 'app-server-media',
   imports: [CommonModule],
   template: `
-  <h2 class="title">Biblioteca del Servidor</h2>
-  <p class="subtitle">Explora las carpetas dentro del servidor como galerías y subgalerías multimedia.</p>
+  <h2 class="title">Server-Mediathek</h2>
+  <p class="subtitle">Durchsuche die Ordner auf dem Server als Mediengalerien und Untergalerien.</p>
 
   <section *ngIf="!loading && rootGallery" class="browser">
     <div class="breadcrumbs">
-      <button type="button" class="crumb" [class.active]="galleryPath.length === 0" (click)="goToRoot()">Inicio</button>
+      <button type="button" class="crumb" [class.active]="galleryPath.length === 0" (click)="goToRoot()">Startseite</button>
       <ng-container *ngFor="let gallery of galleryPath; let i = index">
         <span class="crumb-sep">/</span>
         <button
@@ -38,12 +38,12 @@ interface GalleryCard {
       <div>
         <div class="browser-title">{{ currentGalleryName }}</div>
         <div class="browser-meta">
-          {{ visibleGalleries.length }} galerías · {{ visibleItems.length }} archivos
+          {{ visibleGalleries.length }} Galerien · {{ visibleItems.length }} Dateien
           <span *ngIf="filter !== 'all'"> · {{ filterLabel }}</span>
         </div>
       </div>
 
-      <button *ngIf="galleryPath.length" type="button" class="back-button" (click)="goUp()">Subir</button>
+      <button *ngIf="galleryPath.length" type="button" class="back-button" (click)="goUp()">Eine Ebene höher</button>
     </div>
   </section>
 
@@ -56,30 +56,30 @@ interface GalleryCard {
     <ng-container [ngSwitch]="active.type">
       <video *ngSwitchCase="'video'" [src]="activeUrl" controls autoplay></video>
       <audio *ngSwitchCase="'audio'" [src]="activeUrl" controls autoplay></audio>
-      <div *ngSwitchDefault class="unsupported">Tipo no soportado</div>
+      <div *ngSwitchDefault class="unsupported">Dateityp wird nicht unterstützt</div>
     </ng-container>
 
     <div class="viewer-meta">
       <span>{{ active.mimeType }}</span>
-      <span>{{ active.size | number }} bytes</span>
+      <span>{{ active.size | number }} Byte</span>
       <span>{{ active.modifiedAt | date:'medium' }}</span>
     </div>
   </section>
 
   <div class="toolbar">
-    <span>Mostrar:</span>
-    <button class="chip" [class.active]="filter === 'all'" (click)="setFilter('all')">Todo</button>
+    <span>Anzeigen:</span>
+    <button class="chip" [class.active]="filter === 'all'" (click)="setFilter('all')">Alle</button>
     <button class="chip" [class.active]="filter === 'video'" (click)="setFilter('video')">Videos</button>
-    <button class="chip" [class.active]="filter === 'image'" (click)="setFilter('image')">Imágenes</button>
+    <button class="chip" [class.active]="filter === 'image'" (click)="setFilter('image')">Bilder</button>
     <button class="chip" [class.active]="filter === 'audio'" (click)="setFilter('audio')">Audio</button>
   </div>
 
-  <div *ngIf="loading" class="status">Cargando biblioteca…</div>
+  <div *ngIf="loading" class="status">Mediathek wird geladen…</div>
   <div *ngIf="!loading && !hasVisibleContent" class="status">{{ emptyMessage }}</div>
 
   <section *ngIf="!loading && visibleGalleries.length" class="panel">
     <div class="panel-head">
-      <h3>Galerías</h3>
+      <h3>Galerien</h3>
       <span>{{ visibleGalleries.length }}</span>
     </div>
 
@@ -97,7 +97,7 @@ interface GalleryCard {
         <div class="gallery-copy">
           <div class="gallery-name">{{ entry.gallery.name }}</div>
           <div class="gallery-meta">
-            {{ entry.subgalleryCount }} subgalerías · {{ entry.mediaCount }} archivos
+            {{ entry.subgalleryCount }} Untergalerien · {{ entry.mediaCount }} Dateien
           </div>
         </div>
       </button>
@@ -106,7 +106,7 @@ interface GalleryCard {
 
   <section *ngIf="!loading && visibleItems.length" class="panel">
     <div class="panel-head">
-      <h3>Archivos</h3>
+      <h3>Dateien</h3>
       <span>{{ visibleItems.length }}</span>
     </div>
 
@@ -130,7 +130,7 @@ interface GalleryCard {
 
         <div class="copy">
           <div class="name" title="{{ media.relativePath }}">{{ media.name }}</div>
-          <div class="meta">{{ media.mimeType }} · {{ media.size | number }} bytes</div>
+          <div class="meta">{{ media.mimeType }} · {{ media.size | number }} Byte</div>
         </div>
       </button>
     </div>
@@ -143,7 +143,7 @@ interface GalleryCard {
       <div class="overlay-caption">
         <h3>{{ active.name }}</h3>
         <div class="overlay-meta">
-          {{ active.mimeType }} · {{ active.size | number }} bytes · {{ active.modifiedAt | date:'medium' }}
+          {{ active.mimeType }} · {{ active.size | number }} Byte · {{ active.modifiedAt | date:'medium' }}
         </div>
       </div>
     </div>
@@ -557,7 +557,7 @@ export class ServerMediaComponent implements OnInit {
   }
 
   get currentGalleryName(): string {
-    return this.galleryPath.length ? this.galleryPath[this.galleryPath.length - 1].name : 'Inicio';
+    return this.galleryPath.length ? this.galleryPath[this.galleryPath.length - 1].name : 'Startseite';
   }
 
   get filterLabel(): string {
@@ -565,11 +565,11 @@ export class ServerMediaComponent implements OnInit {
       case 'video':
         return 'Videos';
       case 'image':
-        return 'Imágenes';
+        return 'Bilder';
       case 'audio':
         return 'Audio';
       default:
-        return 'Todo';
+        return 'Alle';
     }
   }
 
@@ -579,14 +579,14 @@ export class ServerMediaComponent implements OnInit {
 
   get emptyMessage(): string {
     if (this.filter !== 'all') {
-      return 'No hay resultados para el filtro seleccionado en esta galería.';
+      return 'In dieser Galerie gibt es keine Ergebnisse für den gewählten Filter.';
     }
 
     if (this.galleryPath.length) {
-      return 'Esta galería no contiene archivos multimedia compatibles.';
+      return 'Diese Galerie enthält keine unterstützten Mediendateien.';
     }
 
-    return 'No se encontraron carpetas o archivos compatibles.';
+    return 'Es wurden keine unterstützten Ordner oder Dateien gefunden.';
   }
 
   ngOnInit(): void {
